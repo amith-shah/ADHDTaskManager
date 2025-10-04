@@ -83,12 +83,24 @@ body {
     align-items: center;
     gap: 0.75rem;
     font-weight: 500;
+    text-decoration: none;
 }
 
 .nav-link:hover, .nav-link.active {
     background: rgba(255,255,255,0.1);
     color: white !important;
     transform: translateX(4px);
+}
+
+/* Fix button styling in sidebar */
+.nav-item button.nav-link {
+    color: rgba(255,255,255,0.8) !important;
+    background: transparent;
+    border: none;
+}
+
+.nav-item button.nav-link:hover {
+    color: white !important;
 }
 
 .nav-icon {
@@ -100,6 +112,15 @@ body {
     margin-top: 1rem;
     padding-top: 1rem;
     border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.nav-section-header .text-muted,
+.nav-section-header small {
+    color: rgba(255,255,255,0.6) !important;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 0.75rem;
 }
 
 /* Main Content */

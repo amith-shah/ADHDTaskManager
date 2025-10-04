@@ -333,30 +333,30 @@
 
     private void FilterTasks()
     {
-        _filteredTasks = _allTasks.AsEnumerable();
+        IEnumerable<TaskItem> filtered = _allTasks;
 
         // Apply status filter
         if (_selectedStatus.HasValue)
         {
-            _filteredTasks = _filteredTasks.Where(t => t.Status == _selectedStatus.Value);
+            filtered = filtered.Where(t => t.Status == _selectedStatus.Value);
         }
 
         // Apply priority filter
         if (_selectedPriority.HasValue)
         {
-            _filteredTasks = _filteredTasks.Where(t => t.Priority == _selectedPriority.Value);
+            filtered = filtered.Where(t => t.Priority == _selectedPriority.Value);
         }
 
         // Apply search filter
         if (!string.IsNullOrEmpty(_searchTerm))
         {
-            _filteredTasks = _filteredTasks.Where(t =>
+            filtered = filtered.Where(t =>
                 t.Title.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ||
                 t.Description.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ||
                 t.Tags.Any(tag => tag.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)));
         }
 
-        _filteredTasks = _filteredTasks.OrderBy(t => t.SortOrder).ToList();
+        _filteredTasks = filtered.OrderBy(t => t.SortOrder).ToList();
     }
 
     private async Task OnSearchChanged()
@@ -448,7 +448,7 @@
     private void OnDragStart(DragEventArgs e, TaskItem task)
     {
         _draggedTask = task;
-        e.DataTransfer?.SetData("text/plain", task.Id.ToString());
+        // Note: DataTransfer.SetData is not available in Blazor Server
     }
 
     private void OnDragEnd(DragEventArgs e)

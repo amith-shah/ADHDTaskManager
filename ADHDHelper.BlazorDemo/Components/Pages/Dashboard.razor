@@ -159,45 +159,42 @@
             <!-- Upcoming Tasks -->
             <div class="dashboard-card">
                 <div class="card-header">
-                    <h3><i class="bi-clock text-warning"></i> Upcoming</h3>
+                    <h3><i class="bi-calendar-week text-info"></i> Upcoming Tasks</h3>
                     <small class="text-muted">Next 3 days</small>
                 </div>
                 <div class="card-body">
                     @if (_upcomingTasks.Any())
                     {
-                        <div class="upcoming-tasks">
-                            @foreach (var taskGroup in _upcomingTasks.GroupBy(t => t.ScheduledDate?.Date).Take(3))
+                        <div class="upcoming-tasks-list">
+                            @foreach (var task in _upcomingTasks.Take(5))
                             {
-                                <div class="upcoming-day">
-                                    <div class="day-header">
-                                        <strong>@FormatUpcomingDate(taskGroup.Key)</strong>
-                                        <span class="task-count">@taskGroup.Count() tasks</span>
-                                    </div>
-                                    @foreach (var task in taskGroup.Take(2))
-                                    {
-                                        <div class="upcoming-task priority-@task.Priority.ToString().ToLower()">
-                                            <div class="task-dot"></div>
-                                            <div class="task-info">
-                                                <div class="task-title">@task.Title</div>
-                                                @if (task.EstimatedDuration.HasValue)
-                                                {
-                                                    <small class="text-muted">@FormatDuration(task.EstimatedDuration.Value)</small>
-                                                }
-                                            </div>
+                                <div class="upcoming-task-item priority-@task.Priority.ToString().ToLower()">
+                                    <div class="upcoming-task-date">
+                                        <div class="date-badge">
+                                            @FormatUpcomingDate(task.DueDate)
                                         </div>
-                                    }
-                                    @if (taskGroup.Count() > 2)
-                                    {
-                                        <small class="text-muted ms-3">+@(taskGroup.Count() - 2) more</small>
-                                    }
+                                    </div>
+                                    <div class="upcoming-task-content">
+                                        <div class="task-title">@task.Title</div>
+                                        @if (task.EstimatedDuration.HasValue)
+                                        {
+                                            <small class="text-muted">@FormatDuration(task.EstimatedDuration.Value)</small>
+                                        }
+                                    </div>
                                 </div>
                             }
                         </div>
+                        @if (_upcomingTasks.Count > 5)
+                        {
+                            <div class="text-center mt-3">
+                                <a href="/tasks" class="btn btn-outline-info btn-sm">View All Upcoming</a>
+                            </div>
+                        }
                     }
                     else
                     {
                         <div class="empty-state-small">
-                            <div class="empty-icon">🗓️</div>
+                            <div class="empty-icon">📅</div>
                             <p>No upcoming tasks scheduled</p>
                         </div>
                     }
@@ -331,12 +328,12 @@
     private string GetGreeting()
     {
         var hour = DateTime.Now.Hour;
-        return hour switch
-        {
-            < 12 => "Good Morning! ☀️",
-            < 17 => "Good Afternoon! 🌤️",
-            _ => "Good Evening! 🌙"
-        };
+        if (hour < 12)
+            return "Good Morning! ☀️";
+        else if (hour < 17)
+            return "Good Afternoon! 🌤️";
+        else
+            return "Good Evening! 🌙";
     }
 
     private string GetMotivationalMessage()
