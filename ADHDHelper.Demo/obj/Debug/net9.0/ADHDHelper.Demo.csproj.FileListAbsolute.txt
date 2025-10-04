@@ -1,8 +1,0 @@
-/Users/amit/Documents/Aut/ADHDHelper.Demo/obj/Debug/net9.0/rpswa.dswa.cache.json
-/Users/amit/Documents/Aut/ADHDHelper.Demo/obj/Debug/net9.0/ADHDHelper.Demo.GeneratedMSBuildEditorConfig.editorconfig
-/Users/amit/Documents/Aut/ADHDHelper.Demo/obj/Debug/net9.0/ADHDHelper.Demo.AssemblyInfoInputs.cache
-/Users/amit/Documents/Aut/ADHDHelper.Demo/obj/Debug/net9.0/ADHDHelper.Demo.AssemblyInfo.cs
-/Users/amit/Documents/Aut/ADHDHelper.Demo/obj/Debug/net9.0/ADHDHelper.Demo.csproj.CoreCompileInputs.cache
-/Users/amit/Documents/Aut/ADHDHelper.Demo/obj/Debug/net9.0/ADHDHelper.Demo.MvcApplicationPartsAssemblyInfo.cache
-/Users/amit/Documents/Aut/ADHDHelper.Demo/obj/Debug/net9.0/ADHDHelper.Demo.RazorAssemblyInfo.cache
-/Users/amit/Documents/Aut/ADHDHelper.Demo/obj/Debug/net9.0/ADHDHelper.Demo.RazorAssemblyInfo.cs
