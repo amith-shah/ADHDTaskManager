@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<?xaml-stylesheet type="text/css" href="../Styles/Styles.css" ?>
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- ADHD-Friendly Color Palette -->
+
+    <!-- Primary Colors -->
+    <Color x:Key="Primary">#007ACC</Color>
+    <Color x:Key="PrimaryDark">#005A9E</Color>
+    <Color x:Key="PrimaryDarkText">#FFFFFF</Color>
+
+    <!-- Secondary Colors -->
+    <Color x:Key="Secondary">#40E0D0</Color>
+    <Color x:Key="SecondaryDarkText">#000000</Color>
+
+    <!-- Tertiary -->
+    <Color x:Key="Tertiary">#FFB347</Color>
+    <Color x:Key="TertiaryDarkText">#000000</Color>
+
+    <!-- Status Colors -->
+    <Color x:Key="Success">#28A745</Color>
+    <Color x:Key="Warning">#FFC107</Color>
+    <Color x:Key="Danger">#DC3545</Color>
+    <Color x:Key="Info">#17A2B8</Color>
+
+    <!-- Priority Colors -->
+    <Color x:Key="UrgentColor">#FF6B6B</Color>
+    <Color x:Key="HighColor">#FF9F43</Color>
+    <Color x:Key="MediumColor">#10AC84</Color>
+    <Color x:Key="LowColor">#45B7D1</Color>
+
+    <!-- ADHD-Friendly Theme Colors -->
+    <Color x:Key="CalmBlue">#E3F2FD</Color>
+    <Color x:Key="FocusGreen">#E8F5E8</Color>
+    <Color x:Key="EnergyOrange">#FFF3E0</Color>
+    <Color x:Key="RestPurple">#F3E5F5</Color>
+
+    <!-- Gray Scale -->
+    <Color x:Key="White">#FFFFFF</Color>
+    <Color x:Key="Black">#000000</Color>
+    <Color x:Key="Gray100">#F8F9FA</Color>
+    <Color x:Key="Gray200">#E9ECEF</Color>
+    <Color x:Key="Gray300">#DEE2E6</Color>
+    <Color x:Key="Gray400">#CED4DA</Color>
+    <Color x:Key="Gray500">#ADB5BD</Color>
+    <Color x:Key="Gray600">#6C757D</Color>
+    <Color x:Key="Gray900">#212529</Color>
+    <Color x:Key="Gray950">#343A40</Color>
+
+    <!-- Light Theme -->
+    <Color x:Key="LightBackground">#FFFFFF</Color>
+    <Color x:Key="LightBackgroundAlt">#F8F9FA</Color>
+    <Color x:Key="LightForeground">#212529</Color>
+
+    <!-- Dark Theme -->
+    <Color x:Key="DarkBackground">#1A1A1A</Color>
+    <Color x:Key="DarkBackgroundAlt">#2D2D2D</Color>
+    <Color x:Key="DarkForeground">#E0E0E0</Color>
+
+</ResourceDictionary>

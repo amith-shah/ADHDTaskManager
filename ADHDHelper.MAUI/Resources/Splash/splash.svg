@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+    <g transform="translate(14,14)">
+        <!-- Simplified brain icon -->
+        <path d="M50 15 C65 15 75 25 75 40 C75 42 74 44 73 46 C74 48 75 50 75 52 C75 62 67 70 57 70 C56 70 55 70 54 69 C53 70 52 70 51 70 C41 70 33 62 33 52 C33 50 34 48 35 46 C34 44 33 42 33 40 C33 25 43 15 50 15 Z" fill="#007ACC"/>
+
+        <!-- Simple checkmark -->
+        <path d="M40 45 L47 52 L58 41" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+        <!-- Focus ring -->
+        <circle cx="50" cy="50" r="35" stroke="#007ACC" stroke-width="2" fill="none" opacity="0.7"/>
+    </g>
+</svg>

@@ -1,0 +1,551 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "ADHD Helper - Interactive Demo";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #007ACC;
+            --success-color: #28A745;
+            --warning-color: #FFC107;
+            --danger-color: #DC3545;
+            --high-color: #FF6B6B;
+            --medium-color: #10AC84;
+            --low-color: #45B7D1;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            background: linear-gradient(180deg, #2C3E50 0%, #34495E 100%);
+            min-height: 100vh;
+            width: 250px;
+            position: fixed;
+            color: white;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.25rem;
+            color: white;
+            padding: 1rem;
+        }
+
+        .nav-link {
+            color: rgba(255,255,255,0.8);
+            padding: 0.75rem 1rem;
+            margin: 0.25rem 0.5rem;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: block;
+        }
+
+        .nav-link:hover {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            transform: translateX(4px);
+        }
+
+        .main-content {
+            margin-left: 250px;
+            padding: 2rem;
+        }
+
+        .welcome-section {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #40E0D0 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .dashboard-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .card {
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            border: none;
+        }
+
+        .card:hover {
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
+        }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 0.75rem;
+            border-left: 4px solid var(--medium-color);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .task-item:hover {
+            background: #e9ecef;
+            transform: translateX(4px);
+        }
+
+        .task-item.priority-high {
+            border-left-color: var(--high-color);
+        }
+
+        .task-item.priority-low {
+            border-left-color: var(--low-color);
+        }
+
+        .task-item.completed {
+            opacity: 0.6;
+            text-decoration: line-through;
+        }
+
+        .priority-badge {
+            padding: 0.15rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: white;
+        }
+
+        .priority-badge.priority-high {
+            background: var(--high-color);
+        }
+
+        .priority-badge.priority-medium {
+            background: var(--medium-color);
+        }
+
+        .priority-badge.priority-low {
+            background: var(--low-color);
+        }
+
+        .teams-badge {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.15rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .progress-circle {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .progress-percentage {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--success-color);
+        }
+
+        .motivational-card {
+            background: linear-gradient(135deg, #FFF3E0 0%, #E3F2FD 100%);
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-top: 1rem;
+            border: 2px solid var(--warning-color);
+        }
+
+        .achievement-badge {
+            background: rgba(40, 167, 69, 0.2);
+            border: 2px solid var(--success-color);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            animation: pulse 2s infinite;
+        }
+
+        @@keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+
+        .celebration {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--success-color);
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-weight: bold;
+            z-index: 10000;
+            animation: celebrationPop 2s ease-in-out;
+            display: none;
+        }
+
+        @@keyframes celebrationPop {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="navbar-brand">🧠 ADHD Helper</div>
+        <nav>
+            <a class="nav-link" href="#dashboard">📊 Dashboard</a>
+            <a class="nav-link" href="#tasks">✅ Tasks</a>
+            <a class="nav-link" href="#calendar">📅 Calendar</a>
+            <a class="nav-link" href="#focus">🎯 Focus Timer</a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Welcome Section -->
+        <div class="welcome-section">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="dashboard-title">
+                        <div>Good @GetTimeOfDay()! ☀️</div>
+                        <div style="font-size: 1.2rem; opacity: 0.9; font-weight: 400;">Ready to tackle your goals?</div>
+                    </h1>
+                    <p style="font-size: 1.1rem; opacity: 0.8; margin: 0;">@DateTime.Now.ToString("dddd, MMMM dd, yyyy")</p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <div class="d-flex gap-4">
+                        <div class="text-center">
+                            <div style="font-size: 2.5rem; font-weight: 700; line-height: 1;" id="completedCount">0</div>
+                            <div style="font-size: 0.9rem; opacity: 0.8;">Completed Today</div>
+                        </div>
+                        <div class="text-center">
+                            <div style="font-size: 2.5rem; font-weight: 700; line-height: 1;" id="pendingCount">5</div>
+                            <div style="font-size: 0.9rem; opacity: 0.8;">Pending</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+            <button class="btn btn-primary btn-lg" onclick="addSampleTask()">
+                ➕ Quick Add Task
+            </button>
+            <button class="btn btn-outline-secondary" onclick="startFocus()">
+                🎯 Start Focus Session
+            </button>
+            <button class="btn btn-outline-info" onclick="syncTasks()">
+                🔄 Sync Teams
+            </button>
+        </div>
+
+        <!-- Content Cards -->
+        <div class="row">
+            <!-- Tasks Card -->
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h3>📝 Today's Tasks</h3>
+                        <small class="text-muted" id="taskCount">5 tasks</small>
+                    </div>
+                    <div class="card-body" id="taskList">
+                        <!-- Tasks will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progress Card -->
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📊 Today's Progress</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="progress-circle">
+                            <div class="progress-percentage" id="progressPercent">0%</div>
+                            <div style="font-size: 0.9rem; color: #6c757d;">Complete</div>
+                        </div>
+                        <div class="row text-center">
+                            <div class="col">
+                                <span style="font-size: 1.5rem; font-weight: 700; color: var(--success-color);" id="completedStat">0</span>
+                                <div style="font-size: 0.8rem; color: #6c757d;">Completed</div>
+                            </div>
+                            <div class="col">
+                                <span style="font-size: 1.5rem; font-weight: 700; color: var(--warning-color);" id="pendingStat">5</span>
+                                <div style="font-size: 0.8rem; color: #6c757d;">Pending</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Motivational Section -->
+                <div class="motivational-card">
+                    <h4>💪 You're doing great!</h4>
+                    <p>"Progress, not perfection, is the goal."</p>
+                    <div class="achievement-badge" id="achievementBadge" style="display: none;">
+                        🏆 Task Champion! You're on fire today!
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Celebration Animation -->
+    <div class="celebration" id="celebration">
+        🎉 Task completed! Great job! 🎉
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // ADHD Helper Demo JavaScript
+        let tasks = [
+            { id: 1, title: "Complete Math Assignment", priority: "high", completed: false, fromTeams: true },
+            { id: 2, title: "Read Science Chapter", priority: "medium", completed: false, fromTeams: true },
+            { id: 3, title: "Call Doctor", priority: "low", completed: false, fromTeams: false },
+            { id: 4, title: "Grocery Shopping", priority: "medium", completed: false, fromTeams: false },
+            { id: 5, title: "Project Presentation", priority: "high", completed: false, fromTeams: false }
+        ];
+
+        function renderTasks() {
+            const taskList = document.getElementById('taskList');
+            const completed = tasks.filter(t => t.completed).length;
+            const pending = tasks.filter(t => !t.completed).length;
+            const progressPercent = tasks.length > 0 ? Math.round((completed / tasks.length) * 100) : 0;
+
+            // Update stats
+            document.getElementById('completedCount').textContent = completed;
+            document.getElementById('pendingCount').textContent = pending;
+            document.getElementById('completedStat').textContent = completed;
+            document.getElementById('pendingStat').textContent = pending;
+            document.getElementById('progressPercent').textContent = progressPercent + '%';
+            document.getElementById('taskCount').textContent = tasks.length + ' tasks';
+
+            // Show achievement badge if 3+ completed
+            const achievementBadge = document.getElementById('achievementBadge');
+            if (completed >= 3) {
+                achievementBadge.style.display = 'block';
+            } else {
+                achievementBadge.style.display = 'none';
+            }
+
+            // Render task list
+            taskList.innerHTML = tasks.map(task => `
+                <div class="task-item priority-${task.priority} ${task.completed ? 'completed' : ''}" onclick="toggleTask(${task.id})">
+                    <div>
+                        <input type="checkbox" ${task.completed ? 'checked' : ''} onclick="event.stopPropagation(); toggleTask(${task.id})">
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; margin-bottom: 0.25rem;">${task.title}</div>
+                        <div style="display: flex; gap: 0.5rem; font-size: 0.85rem;">
+                            <span class="priority-badge priority-${task.priority}">
+                                ${getPriorityIcon(task.priority)} ${task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                            </span>
+                            ${task.fromTeams ? '<span class="teams-badge">📚 Teams</span>' : ''}
+                        </div>
+                    </div>
+                    <div>
+                        <button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); deleteTask(${task.id})">
+                            🗑️
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getPriorityIcon(priority) {
+            switch(priority) {
+                case 'high': return '🔴';
+                case 'medium': return '🟡';
+                case 'low': return '🟢';
+                default: return '⚪';
+            }
+        }
+
+        function toggleTask(id) {
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                task.completed = !task.completed;
+                if (task.completed) {
+                    showCelebration();
+                    playSuccessSound();
+                }
+                renderTasks();
+            }
+        }
+
+        function deleteTask(id) {
+            tasks = tasks.filter(t => t.id !== id);
+            renderTasks();
+        }
+
+        function addSampleTask() {
+            const sampleTasks = [
+                "Review presentation slides",
+                "Organize desk workspace",
+                "Take a 15-minute break",
+                "Update project timeline",
+                "Send follow-up emails"
+            ];
+            const priorities = ['low', 'medium', 'high'];
+
+            const newTask = {
+                id: Date.now(),
+                title: sampleTasks[Math.floor(Math.random() * sampleTasks.length)],
+                priority: priorities[Math.floor(Math.random() * priorities.length)],
+                completed: false,
+                fromTeams: false
+            };
+
+            tasks.push(newTask);
+            renderTasks();
+            showNotification('✅ New task added!', 'success');
+        }
+
+        function startFocus() {
+            showNotification('🎯 Focus session started! Minimizing distractions...', 'info');
+        }
+
+        function syncTasks() {
+            showNotification('🔄 Syncing with Teams...', 'info');
+            setTimeout(() => {
+                showNotification('✅ Teams sync complete!', 'success');
+            }, 2000);
+        }
+
+        function showCelebration() {
+            const celebration = document.getElementById('celebration');
+            celebration.style.display = 'block';
+            setTimeout(() => {
+                celebration.style.display = 'none';
+            }, 2000);
+        }
+
+        function playSuccessSound() {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
+                oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1); // E5
+
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.3);
+            } catch (error) {
+                console.log('Audio not supported');
+            }
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.innerHTML = message;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#007acc'};
+                color: white;
+                padding: 1rem;
+                border-radius: 8px;
+                font-weight: 500;
+                z-index: 10000;
+                max-width: 300px;
+                animation: slideIn 0.3s ease-out;
+            `;
+
+            const style = document.createElement('style');
+            style.textContent = `
+                @@keyframes slideIn {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
+
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                if (document.body.contains(notification)) {
+                    notification.style.animation = 'slideIn 0.3s ease-out reverse';
+                    setTimeout(() => {
+                        if (document.body.contains(notification)) {
+                            document.body.removeChild(notification);
+                        }
+                    }, 300);
+                }
+                if (document.head.contains(style)) {
+                    document.head.removeChild(style);
+                }
+            }, 3000);
+        }
+
+        function getTimeOfDay() {
+            const hour = new Date().getHours();
+            if (hour < 12) return 'Morning';
+            if (hour < 17) return 'Afternoon';
+            return 'Evening';
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            renderTasks();
+            console.log('🧠 ADHD Helper Demo loaded!');
+
+            // Add keyboard shortcuts
+            document.addEventListener('keydown', function(e) {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    addSampleTask();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+
+@functions {
+    private string GetTimeOfDay()
+    {
+        var hour = DateTime.Now.Hour;
+        return hour switch
+        {
+            < 12 => "Morning",
+            < 17 => "Afternoon",
+            _ => "Evening"
+        };
+    }
+}

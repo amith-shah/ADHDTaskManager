@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ADHD Helper - Simple Demo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .dashboard-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .dashboard-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 2rem;
+            margin-bottom: 2rem;
+            transition: transform 0.3s ease;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .dashboard-title {
+            color: #2d3748;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .greeting {
+            display: block;
+            color: #4299e1;
+        }
+
+        .motivational {
+            display: block;
+            font-size: 1.2rem;
+            color: #718096;
+            font-weight: 400;
+        }
+
+        .quick-actions-bar {
+            display: flex;
+            gap: 1rem;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+
+        .btn-lg {
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #4299e1, #667eea);
+            border: none;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(66, 153, 225, 0.4);
+        }
+
+        .task-item {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border-left: 4px solid #e2e8f0;
+        }
+
+        .task-item:hover {
+            background: #e2e8f0;
+            transform: translateX(5px);
+        }
+
+        .task-item.completed {
+            opacity: 0.7;
+            text-decoration: line-through;
+            background: #f0fff4;
+            border-left-color: #38a169;
+        }
+
+        .task-item.priority-high {
+            border-left-color: #e53e3e;
+        }
+
+        .task-item.priority-medium {
+            border-left-color: #dd6b20;
+        }
+
+        .task-item.priority-low {
+            border-left-color: #38a169;
+        }
+
+        .progress-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: conic-gradient(#4299e1 var(--progress, 0%), #e2e8f0 0%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .progress-circle::before {
+            content: '';
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: white;
+            position: absolute;
+        }
+
+        .progress-percentage {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #2d3748;
+            z-index: 1;
+        }
+
+        .stats {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #4299e1;
+        }
+
+        .stat-label {
+            color: #718096;
+            font-size: 0.9rem;
+        }
+
+        .celebration {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #38a169;
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            z-index: 10000;
+            animation: celebrationBounce 2s ease-in-out;
+        }
+
+        @keyframes celebrationBounce {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #718096;
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Welcome Section -->
+        <div class="dashboard-card">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="dashboard-title">
+                        <span class="greeting">Good <span id="timeOfDay">Morning</span>! ☀️</span>
+                        <span class="motivational">Ready to tackle your goals?</span>
+                    </h1>
+                    <p class="dashboard-subtitle text-muted" id="currentDate"></p>
+                </div>
+                <div class="col-md-4">
+                    <div class="stats">
+                        <div class="stat-item">
+                            <div class="stat-number" id="completedCount">0</div>
+                            <div class="stat-label">Completed Today</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" id="pendingCount">5</div>
+                            <div class="stat-label">Pending</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="quick-actions-bar">
+            <button class="btn btn-primary btn-lg" onclick="addSampleTask()">
+                ➕ Quick Add Task
+            </button>
+            <button class="btn btn-outline-secondary btn-lg" onclick="startFocus()">
+                🎯 Start Focus Session
+            </button>
+            <button class="btn btn-outline-info btn-lg" onclick="syncTasks()">
+                🔄 Sync Teams
+            </button>
+        </div>
+
+        <div class="row">
+            <!-- Tasks Section -->
+            <div class="col-lg-8">
+                <div class="dashboard-card">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h3>📝 Today's Tasks</h3>
+                        <small class="text-muted"><span id="taskCount">5</span> tasks</small>
+                    </div>
+
+                    <div id="taskList">
+                        <!-- Tasks will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progress Section -->
+            <div class="col-lg-4">
+                <div class="dashboard-card">
+                    <h3 class="mb-4">📊 Today's Progress</h3>
+                    <div class="text-center">
+                        <div class="progress-circle mx-auto mb-3" id="progressCircle">
+                            <div class="progress-percentage" id="progressPercent">0%</div>
+                        </div>
+                        <div class="mt-3">
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="stat-item">
+                                        <div class="stat-number text-success" id="completedStat">0</div>
+                                        <div class="stat-label">Completed</div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="stat-item">
+                                        <div class="stat-number text-warning" id="pendingStat">5</div>
+                                        <div class="stat-label">Pending</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Motivational Section -->
+                <div class="dashboard-card">
+                    <h4>💪 You're doing great!</h4>
+                    <p class="text-muted" id="motivationalQuote">"Progress, not perfection, is the goal."</p>
+                    <div id="achievementSection" style="display: none;">
+                        <div class="alert alert-success">
+                            🏆 <span id="achievementText">Task Champion!</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="app.js"></script>
+    <script>
+        // Sample data and functionality
+        let tasks = [
+            { id: 1, title: "Complete Math Assignment", priority: "high", completed: false, isFromTeams: true },
+            { id: 2, title: "Read Science Chapter", priority: "medium", completed: false, isFromTeams: true },
+            { id: 3, title: "Call Doctor", priority: "low", completed: false, isFromTeams: false },
+            { id: 4, title: "Grocery Shopping", priority: "medium", completed: false, isFromTeams: false },
+            { id: 5, title: "Project Presentation", priority: "high", completed: false, isFromTeams: false }
+        ];
+
+        const motivationalQuotes = [
+            "Progress, not perfection, is the goal.",
+            "Every task completed is a step forward.",
+            "You are capable of amazing things.",
+            "Small steps lead to big achievements.",
+            "Focus on what you can control."
+        ];
+
+        function initializePage() {
+            updateTimeOfDay();
+            updateDate();
+            updateMotivationalQuote();
+            renderTasks();
+            updateStats();
+        }
+
+        function updateTimeOfDay() {
+            const hour = new Date().getHours();
+            const timeOfDay = hour < 12 ? "Morning" : hour < 17 ? "Afternoon" : "Evening";
+            document.getElementById('timeOfDay').textContent = timeOfDay;
+        }
+
+        function updateDate() {
+            const now = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US', options);
+        }
+
+        function updateMotivationalQuote() {
+            const today = new Date().getDate();
+            const quote = motivationalQuotes[today % motivationalQuotes.length];
+            document.getElementById('motivationalQuote').textContent = `"${quote}"`;
+        }
+
+        function renderTasks() {
+            const taskList = document.getElementById('taskList');
+
+            if (tasks.length === 0) {
+                taskList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📅</div>
+                        <h4>No tasks yet</h4>
+                        <p>Add your first task to get started!</p>
+                        <button class="btn btn-primary" onclick="addSampleTask()">Add Sample Task</button>
+                    </div>
+                `;
+                return;
+            }
+
+            taskList.innerHTML = tasks.map(task => `
+                <div class="task-item priority-${task.priority} ${task.completed ? 'completed' : ''}"
+                     onclick="toggleTask(${task.id})">
+                    <div class="d-flex align-items-center">
+                        <input type="checkbox" ${task.completed ? 'checked' : ''}
+                               onclick="event.stopPropagation(); toggleTask(${task.id})"
+                               class="me-3">
+                        <div class="flex-grow-1">
+                            <div class="fw-semibold">${task.title}</div>
+                            <div class="small text-muted">
+                                <span class="badge bg-${getPriorityColor(task.priority)} me-2">
+                                    ${getPriorityIcon(task.priority)} ${task.priority.toUpperCase()}
+                                </span>
+                                ${task.isFromTeams ? '<span class="badge bg-info">📚 Teams</span>' : ''}
+                            </div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-danger"
+                                onclick="event.stopPropagation(); deleteTask(${task.id})">
+                            🗑️
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getPriorityColor(priority) {
+            return priority === 'high' ? 'danger' : priority === 'medium' ? 'warning' : 'success';
+        }
+
+        function getPriorityIcon(priority) {
+            return priority === 'high' ? '🔴' : priority === 'medium' ? '🟡' : '🟢';
+        }
+
+        function updateStats() {
+            const completed = tasks.filter(t => t.completed).length;
+            const pending = tasks.filter(t => !t.completed).length;
+            const percentage = tasks.length > 0 ? Math.round((completed / tasks.length) * 100) : 0;
+
+            document.getElementById('completedCount').textContent = completed;
+            document.getElementById('pendingCount').textContent = pending;
+            document.getElementById('taskCount').textContent = tasks.length;
+            document.getElementById('completedStat').textContent = completed;
+            document.getElementById('pendingStat').textContent = pending;
+            document.getElementById('progressPercent').textContent = percentage + '%';
+
+            // Update progress circle
+            const progressCircle = document.getElementById('progressCircle');
+            progressCircle.style.setProperty('--progress', percentage + '%');
+
+            // Show achievement
+            if (completed >= 3) {
+                const achievementSection = document.getElementById('achievementSection');
+                const achievementText = document.getElementById('achievementText');
+                achievementText.textContent = `Task Champion! You completed ${completed} tasks today!`;
+                achievementSection.style.display = 'block';
+            }
+        }
+
+        function toggleTask(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (task) {
+                task.completed = !task.completed;
+                if (task.completed) {
+                    showCelebration();
+                }
+                renderTasks();
+                updateStats();
+            }
+        }
+
+        function deleteTask(taskId) {
+            tasks = tasks.filter(t => t.id !== taskId);
+            renderTasks();
+            updateStats();
+        }
+
+        function addSampleTask() {
+            const sampleTasks = [
+                "Review presentation slides",
+                "Organize desk workspace",
+                "Take a 15-minute break",
+                "Update project timeline",
+                "Send follow-up emails"
+            ];
+
+            const priorities = ["low", "medium", "high"];
+            const randomTask = sampleTasks[Math.floor(Math.random() * sampleTasks.length)];
+            const randomPriority = priorities[Math.floor(Math.random() * priorities.length)];
+
+            const newTask = {
+                id: Date.now(),
+                title: randomTask,
+                priority: randomPriority,
+                completed: false,
+                isFromTeams: false
+            };
+
+            tasks.push(newTask);
+            renderTasks();
+            updateStats();
+        }
+
+        function showCelebration() {
+            if (window.adhdHelper && window.adhdHelper.showTaskCompletion) {
+                window.adhdHelper.showTaskCompletion();
+            } else {
+                // Fallback celebration
+                const celebration = document.createElement('div');
+                celebration.className = 'celebration';
+                celebration.textContent = '🎉 Task completed! Great job! 🎉';
+                document.body.appendChild(celebration);
+
+                setTimeout(() => {
+                    if (document.body.contains(celebration)) {
+                        document.body.removeChild(celebration);
+                    }
+                }, 2000);
+            }
+        }
+
+        function startFocus() {
+            alert('🎯 Focus mode would start here! This feature helps you concentrate on one task at a time.');
+        }
+
+        function syncTasks() {
+            alert('🔄 Teams sync would happen here! This would fetch assignments from Microsoft Teams.');
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', initializePage);
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                addSampleTask();
+            }
+        });
+    </script>
+</body>
+</html>

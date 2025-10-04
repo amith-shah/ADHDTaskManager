@@ -1,0 +1,51 @@
+@inherits LayoutComponentBase
+
+<div class="page">
+    <div class="sidebar">
+        <div class="top-row ps-3 navbar navbar-dark">
+            <div class="container-fluid">
+                <span class="navbar-brand">🧠 ADHD Helper</span>
+            </div>
+        </div>
+
+        <nav class="nav flex-column">
+            <div class="nav-item px-3">
+                <a class="nav-link" href="/" Match="NavLinkMatch.All">
+                    📊 Dashboard
+                </a>
+            </div>
+            <div class="nav-item px-3">
+                <a class="nav-link" href="/tasks">
+                    ✅ Tasks
+                </a>
+            </div>
+            <div class="nav-item px-3">
+                <a class="nav-link" href="/calendar">
+                    📅 Calendar
+                </a>
+            </div>
+            <div class="nav-item px-3">
+                <a class="nav-link" href="/timetable">
+                    📚 Timetable
+                </a>
+            </div>
+        </nav>
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            <div class="navbar-brand">
+                <span class="app-title">ADHD Helper Demo</span>
+            </div>
+            <div class="top-row-actions">
+                <button class="btn btn-sm btn-outline-primary" onclick="alert('Focus mode activated! 🎯')">
+                    🎯 Focus Mode
+                </button>
+            </div>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>

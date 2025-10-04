@@ -1,0 +1,391 @@
+@page "/"
+@inject ITaskService TaskService
+@inject ICalendarService CalendarService
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>Dashboard - ADHD Helper</PageTitle>
+
+<div class="dashboard-container">
+
+    <!-- Welcome Header -->
+    <div class="welcome-section">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="dashboard-title">
+                    <span class="greeting">@GetGreeting()</span>
+                    <span class="motivational">@GetMotivationalMessage()</span>
+                </h1>
+                <p class="dashboard-subtitle">@DateTime.Now.ToString("dddd, MMMM dd, yyyy")</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="quick-stats">
+                    <div class="stat-item">
+                        <div class="stat-number">@_completedToday</div>
+                        <div class="stat-label">Completed Today</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">@_pendingTasks</div>
+                        <div class="stat-label">Pending</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions Bar -->
+    <div class="quick-actions-bar">
+        <button class="btn btn-primary btn-lg" @onclick="ShowQuickAddModal">
+            <i class="bi-plus-circle"></i> Quick Add Task
+        </button>
+        <button class="btn btn-outline-secondary" @onclick="SyncWithTeams" disabled="@_isSyncing">
+            @if (_isSyncing)
+            {
+                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+            }
+            else
+            {
+                <i class="bi-arrow-clockwise me-2"></i>
+            }
+            Sync Teams
+        </button>
+        <button class="btn btn-outline-info" @onclick="StartFocusSession">
+            <i class="bi-bullseye me-2"></i> Start Focus Session
+        </button>
+    </div>
+
+    <div class="row">
+        <!-- Left Column: Today's Tasks -->
+        <div class="col-lg-6">
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h3><i class="bi-check-circle text-primary"></i> Today's Tasks</h3>
+                    <small class="text-muted">@_todayTasks.Count tasks scheduled</small>
+                </div>
+                <div class="card-body">
+                    @if (_todayTasks.Any())
+                    {
+                        <div class="task-list-compact">
+                            @foreach (var task in _todayTasks.Take(5))
+                            {
+                                <div class="task-item-compact priority-@task.Priority.ToString().ToLower() @(task.Status == TaskStatus.Completed ? "completed" : "")"
+                                     @onclick="() => ToggleTaskCompletion(task)">
+                                    <div class="task-checkbox">
+                                        <input type="checkbox" checked="@(task.Status == TaskStatus.Completed)" @onclick:stopPropagation="true" />
+                                    </div>
+                                    <div class="task-content">
+                                        <div class="task-title">@task.Title</div>
+                                        <div class="task-meta">
+                                            @if (task.DueDate.HasValue)
+                                            {
+                                                <span class="due-date @(task.DueDate < DateTime.Now ? "overdue" : "")">
+                                                    Due: @task.DueDate.Value.ToString("h:mm tt")
+                                                </span>
+                                            }
+                                            @if (task.EstimatedDuration.HasValue)
+                                            {
+                                                <span class="duration">@FormatDuration(task.EstimatedDuration.Value)</span>
+                                            }
+                                            @if (task.IsFromTeams)
+                                            {
+                                                <span class="teams-badge">Teams</span>
+                                            }
+                                        </div>
+                                    </div>
+                                    <div class="task-actions">
+                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => EditTask(task)" @onclick:stopPropagation="true">
+                                            <i class="bi-pencil"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                        @if (_todayTasks.Count > 5)
+                        {
+                            <div class="text-center mt-3">
+                                <a href="/tasks" class="btn btn-outline-primary">View All @_todayTasks.Count Tasks</a>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="empty-state">
+                            <div class="empty-icon">📅</div>
+                            <h4>No tasks scheduled for today</h4>
+                            <p>Add a task or schedule existing ones for today.</p>
+                            <button class="btn btn-primary" @onclick="ShowQuickAddModal">Add Your First Task</button>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Progress & Upcoming -->
+        <div class="col-lg-6">
+            <!-- Progress Overview -->
+            <div class="dashboard-card mb-4">
+                <div class="card-header">
+                    <h3><i class="bi-graph-up text-success"></i> Today's Progress</h3>
+                </div>
+                <div class="card-body">
+                    <div class="progress-ring-container">
+                        <svg class="progress-ring" width="120" height="120">
+                            <circle class="progress-ring-circle-bg" cx="60" cy="60" r="50"></circle>
+                            <circle class="progress-ring-circle" cx="60" cy="60" r="50"
+                                    style="stroke-dasharray: @_progressCircumference @_progressCircumference; stroke-dashoffset: @_progressOffset;"></circle>
+                        </svg>
+                        <div class="progress-text">
+                            <div class="progress-percentage">@_progressPercentage%</div>
+                            <div class="progress-label">Complete</div>
+                        </div>
+                    </div>
+                    <div class="progress-stats">
+                        <div class="stat">
+                            <span class="stat-value text-success">@_completedToday</span>
+                            <span class="stat-label">Completed</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value text-primary">@_inProgressTasks</span>
+                            <span class="stat-label">In Progress</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value text-muted">@_pendingTasks</span>
+                            <span class="stat-label">Pending</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upcoming Tasks -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h3><i class="bi-clock text-warning"></i> Upcoming</h3>
+                    <small class="text-muted">Next 3 days</small>
+                </div>
+                <div class="card-body">
+                    @if (_upcomingTasks.Any())
+                    {
+                        <div class="upcoming-tasks">
+                            @foreach (var taskGroup in _upcomingTasks.GroupBy(t => t.ScheduledDate?.Date).Take(3))
+                            {
+                                <div class="upcoming-day">
+                                    <div class="day-header">
+                                        <strong>@FormatUpcomingDate(taskGroup.Key)</strong>
+                                        <span class="task-count">@taskGroup.Count() tasks</span>
+                                    </div>
+                                    @foreach (var task in taskGroup.Take(2))
+                                    {
+                                        <div class="upcoming-task priority-@task.Priority.ToString().ToLower()">
+                                            <div class="task-dot"></div>
+                                            <div class="task-info">
+                                                <div class="task-title">@task.Title</div>
+                                                @if (task.EstimatedDuration.HasValue)
+                                                {
+                                                    <small class="text-muted">@FormatDuration(task.EstimatedDuration.Value)</small>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                    @if (taskGroup.Count() > 2)
+                                    {
+                                        <small class="text-muted ms-3">+@(taskGroup.Count() - 2) more</small>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="empty-state-small">
+                            <div class="empty-icon">🗓️</div>
+                            <p>No upcoming tasks scheduled</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Motivational Footer -->
+    <div class="motivational-footer">
+        <div class="row">
+            <div class="col-md-8">
+                <h4>💪 Keep Going!</h4>
+                <p>@GetMotivationalQuote()</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="achievement-badge @(_completedToday >= 3 ? "earned" : "")">
+                    <div class="badge-icon">🏆</div>
+                    <div class="badge-text">
+                        <div class="badge-title">Task Champion</div>
+                        <div class="badge-desc">Complete 3 tasks in a day</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<TaskItem> _allTasks = new();
+    private List<TaskItem> _todayTasks = new();
+    private List<TaskItem> _upcomingTasks = new();
+
+    private int _completedToday = 0;
+    private int _pendingTasks = 0;
+    private int _inProgressTasks = 0;
+    private int _progressPercentage = 0;
+
+    private bool _isSyncing = false;
+
+    // Progress ring calculations
+    private double _progressCircumference = 2 * Math.PI * 50; // radius = 50
+    private double _progressOffset = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboardData();
+        CalculateProgress();
+    }
+
+    private async Task LoadDashboardData()
+    {
+        _allTasks = await TaskService.GetAllTasksAsync();
+        _todayTasks = await TaskService.GetTasksByDateAsync(DateTime.Today);
+
+        // Get upcoming tasks for next 3 days
+        _upcomingTasks = new List<TaskItem>();
+        for (int i = 1; i <= 3; i++)
+        {
+            var futureTasks = await TaskService.GetTasksByDateAsync(DateTime.Today.AddDays(i));
+            _upcomingTasks.AddRange(futureTasks);
+        }
+
+        // Calculate stats
+        _completedToday = _todayTasks.Count(t => t.Status == TaskStatus.Completed);
+        _pendingTasks = _allTasks.Count(t => t.Status == TaskStatus.Pending);
+        _inProgressTasks = _allTasks.Count(t => t.Status == TaskStatus.InProgress);
+    }
+
+    private void CalculateProgress()
+    {
+        if (_todayTasks.Count > 0)
+        {
+            _progressPercentage = (int)Math.Round((_completedToday / (double)_todayTasks.Count) * 100);
+            _progressOffset = _progressCircumference - (_progressPercentage / 100.0 * _progressCircumference);
+        }
+        else
+        {
+            _progressPercentage = 0;
+            _progressOffset = _progressCircumference;
+        }
+    }
+
+    private async Task ToggleTaskCompletion(TaskItem task)
+    {
+        task.Status = task.Status == TaskStatus.Completed ? TaskStatus.Pending : TaskStatus.Completed;
+        if (task.Status == TaskStatus.Completed)
+        {
+            task.CompletedAt = DateTime.Now;
+            await JSRuntime.InvokeVoidAsync("showTaskCompletionAnimation", task.Id.ToString());
+        }
+        else
+        {
+            task.CompletedAt = null;
+        }
+
+        await TaskService.UpdateTaskAsync(task);
+        await LoadDashboardData();
+        CalculateProgress();
+        StateHasChanged();
+    }
+
+    private async Task SyncWithTeams()
+    {
+        _isSyncing = true;
+        StateHasChanged();
+
+        // Simulate Teams sync
+        await Task.Delay(2000);
+
+        _isSyncing = false;
+        await LoadDashboardData();
+        StateHasChanged();
+    }
+
+    private async Task ShowQuickAddModal()
+    {
+        await JSRuntime.InvokeVoidAsync("showQuickAddModal");
+    }
+
+    private async Task EditTask(TaskItem task)
+    {
+        await JSRuntime.InvokeVoidAsync("showEditTaskModal", task.Id.ToString());
+    }
+
+    private async Task StartFocusSession()
+    {
+        await JSRuntime.InvokeVoidAsync("startFocusSession");
+    }
+
+    private string GetGreeting()
+    {
+        var hour = DateTime.Now.Hour;
+        return hour switch
+        {
+            < 12 => "Good Morning! ☀️",
+            < 17 => "Good Afternoon! 🌤️",
+            _ => "Good Evening! 🌙"
+        };
+    }
+
+    private string GetMotivationalMessage()
+    {
+        var messages = new[]
+        {
+            "Ready to tackle your goals?",
+            "Let's make today productive!",
+            "You've got this!",
+            "Time to focus and achieve!",
+            "Every task completed is progress!",
+            "Small steps lead to big wins!"
+        };
+        return messages[DateTime.Now.Day % messages.Length];
+    }
+
+    private string GetMotivationalQuote()
+    {
+        var quotes = new[]
+        {
+            "Progress, not perfection, is the goal.",
+            "A journey of a thousand miles begins with a single step.",
+            "You are capable of amazing things.",
+            "Focus on progress, not perfection.",
+            "Small consistent actions lead to big results.",
+            "Every expert was once a beginner."
+        };
+        return quotes[DateTime.Now.Day % quotes.Length];
+    }
+
+    private string FormatDuration(TimeSpan duration)
+    {
+        if (duration.TotalHours >= 1)
+        {
+            return $"{duration.TotalHours:F1}h";
+        }
+        return $"{duration.TotalMinutes:F0}m";
+    }
+
+    private string FormatUpcomingDate(DateTime? date)
+    {
+        if (!date.HasValue) return "Unscheduled";
+
+        var daysDiff = (date.Value.Date - DateTime.Today).Days;
+        return daysDiff switch
+        {
+            1 => "Tomorrow",
+            2 => "Day After Tomorrow",
+            _ => date.Value.ToString("MMM dd")
+        };
+    }
+}

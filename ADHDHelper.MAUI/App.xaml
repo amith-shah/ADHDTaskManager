@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Application x:Class="ADHDHelper.MAUI.App"
+             xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:ADHDHelper.MAUI">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
+                <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
+            </ResourceDictionaries>
+
+            <!-- ADHD-Friendly Color Palette -->
+            <Color x:Key="Primary">#007ACC</Color>
+            <Color x:Key="Secondary">#40E0D0</Color>
+            <Color x:Key="Accent">#FFB347</Color>
+            <Color x:Key="Success">#28A745</Color>
+            <Color x:Key="Warning">#FFC107</Color>
+            <Color x:Key="Danger">#DC3545</Color>
+            <Color x:Key="Info">#17A2B8</Color>
+
+            <!-- Priority Colors -->
+            <Color x:Key="HighPriority">#FF6B6B</Color>
+            <Color x:Key="MediumPriority">#4ECDC4</Color>
+            <Color x:Key="LowPriority">#45B7D1</Color>
+
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

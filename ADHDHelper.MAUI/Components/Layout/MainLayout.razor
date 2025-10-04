@@ -1,0 +1,136 @@
+@inherits LayoutView
+@inject IJSRuntime JSRuntime
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            <div class="navbar-brand">
+                <span class="app-icon">🧠</span>
+                <span class="app-title">ADHD Helper</span>
+            </div>
+            <div class="top-row-actions">
+                <button class="btn btn-sm btn-outline-primary me-2" @onclick="ToggleFocusMode">
+                    <i class="@(_focusMode ? "bi-eye-slash" : "bi-eye")"></i>
+                    @(_focusMode ? "Exit Focus" : "Focus Mode")
+                </button>
+                <div class="user-info">
+                    <span class="user-greeting">Hello, User! 👋</span>
+                </div>
+            </div>
+        </div>
+
+        <article class="content px-4">
+            @if (_focusMode)
+            {
+                <div class="focus-mode-overlay">
+                    <div class="focus-mode-content">
+                        <h2>🎯 Focus Mode Active</h2>
+                        <p>Distractions minimized. You've got this!</p>
+                        <div class="focus-timer">
+                            <div class="timer-display">@_focusTimeDisplay</div>
+                            <div class="timer-controls">
+                                <button class="btn btn-success" @onclick="StartFocusTimer">
+                                    <i class="bi-play-fill"></i>
+                                </button>
+                                <button class="btn btn-warning" @onclick="PauseFocusTimer">
+                                    <i class="bi-pause-fill"></i>
+                                </button>
+                                <button class="btn btn-danger" @onclick="ResetFocusTimer">
+                                    <i class="bi-stop-fill"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                @Body
+            }
+        </article>
+    </main>
+</div>
+
+@code {
+    private bool _focusMode = false;
+    private Timer? _focusTimer;
+    private int _focusTimeSeconds = 0;
+    private string _focusTimeDisplay = "25:00";
+    private bool _timerRunning = false;
+
+    private async Task ToggleFocusMode()
+    {
+        _focusMode = !_focusMode;
+        if (!_focusMode)
+        {
+            ResetFocusTimer();
+        }
+        StateHasChanged();
+    }
+
+    private void StartFocusTimer()
+    {
+        if (!_timerRunning)
+        {
+            _timerRunning = true;
+            _focusTimer = new Timer(OnTimerElapsed, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        }
+    }
+
+    private void PauseFocusTimer()
+    {
+        _timerRunning = false;
+        _focusTimer?.Dispose();
+    }
+
+    private void ResetFocusTimer()
+    {
+        _timerRunning = false;
+        _focusTimer?.Dispose();
+        _focusTimeSeconds = 25 * 60; // 25 minutes
+        UpdateFocusTimeDisplay();
+    }
+
+    private void OnTimerElapsed(object? state)
+    {
+        if (_focusTimeSeconds > 0)
+        {
+            _focusTimeSeconds--;
+            InvokeAsync(() =>
+            {
+                UpdateFocusTimeDisplay();
+                StateHasChanged();
+            });
+        }
+        else
+        {
+            InvokeAsync(async () =>
+            {
+                PauseFocusTimer();
+                await JSRuntime.InvokeVoidAsync("showNotification", "🎉 Focus session complete! Great job!");
+                StateHasChanged();
+            });
+        }
+    }
+
+    private void UpdateFocusTimeDisplay()
+    {
+        var minutes = _focusTimeSeconds / 60;
+        var seconds = _focusTimeSeconds % 60;
+        _focusTimeDisplay = $"{minutes:D2}:{seconds:D2}";
+    }
+
+    protected override void OnInitialized()
+    {
+        ResetFocusTimer();
+    }
+
+    public void Dispose()
+    {
+        _focusTimer?.Dispose();
+    }
+}

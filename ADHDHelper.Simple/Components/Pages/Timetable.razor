@@ -1,0 +1,412 @@
+@page "/timetable"
+@rendermode InteractiveServer
+
+<PageTitle>Timetable - ADHD Helper</PageTitle>
+
+<div class="timetable-page">
+    <div class="page-header">
+        <h1 class="page-title">📚 School Timetable</h1>
+        <button class="btn btn-primary" @onclick="() => ShowAddModal()">
+            ➕ Add Class
+        </button>
+    </div>
+
+    <!-- Debug Info -->
+    <div class="alert alert-info mb-3">
+        Total entries: @_timetable.Count() | Selected week: @SelectedWeek | Week 1 entries: @_timetable.Where(t => t.Week == "1").Count() | Week 2 entries: @_timetable.Where(t => t.Week == "2").Count()
+    </div>
+
+    <!-- Week Tabs -->
+    <div class="week-tabs mb-3">
+        <nav class="nav nav-tabs">
+            <button class="nav-link @(SelectedWeek == "1" ? "active" : "")" @onclick="SelectWeek1">
+                📅 Week 1
+            </button>
+            <button class="nav-link @(SelectedWeek == "2" ? "active" : "")" @onclick="SelectWeek2">
+                📅 Week 2
+            </button>
+        </nav>
+        <div class="week-info mt-2">
+            <small class="text-muted">
+                @if (SelectedWeek == "1")
+                {
+                    <span>📍 Currently showing Week 1 schedule</span>
+                }
+                else
+                {
+                    <span>📍 Currently showing Week 2 schedule</span>
+                }
+            </small>
+        </div>
+    </div>
+
+    <!-- Weekly Timetable Grid -->
+    <div class="timetable-grid-container">
+        <div class="timetable-grid">
+            <!-- Header Row -->
+            <div class="timetable-header">
+                <div class="time-column-header">Time</div>
+                @foreach (var day in Enum.GetValues<DayOfWeek>().Where(d => d != DayOfWeek.Sunday && d != DayOfWeek.Saturday))
+                {
+                    <div class="day-header">@day.ToString()</div>
+                }
+            </div>
+
+            <!-- Time Slots -->
+            @for (int hour = 8; hour <= 16; hour++)
+            {
+                <div class="time-row">
+                    <div class="time-label">@($"{hour:00}:00")</div>
+                    @foreach (var day in Enum.GetValues<DayOfWeek>().Where(d => d != DayOfWeek.Sunday && d != DayOfWeek.Saturday))
+                    {
+                        <div class="time-slot" @onclick="() => ShowAddModal(day, new TimeOnly(hour, 0))">
+                            @{
+                                var classAtTime = GetClassAtTime(day, new TimeOnly(hour, 0));
+                            }
+                            @if (classAtTime != null)
+                            {
+                                <div class="class-block" style="background-color: @classAtTime.Color; color: white;"
+                                     @onclick="() => EditClass(classAtTime)" @onclick:stopPropagation="true">
+                                    <div class="class-subject">@classAtTime.Subject</div>
+                                    <div class="class-time">
+                                        @classAtTime.StartTime.ToString("HH:mm") - @classAtTime.EndTime.ToString("HH:mm")
+                                    </div>
+                                    <div class="class-room">@classAtTime.Room</div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Class List View -->
+    <div class="class-list-section mt-4">
+        <h3>📋 All Classes (@(_timetable.Where(t => t.Week == SelectedWeek).Count()) classes)</h3>
+        <div class="class-list">
+            @foreach (var dayGroup in _timetable.Where(t => t.Week == SelectedWeek).GroupBy(t => t.Day).OrderBy(g => g.Key))
+            {
+                <div class="day-section">
+                    <h4 class="day-title">@dayGroup.Key.ToString()</h4>
+                    <div class="day-classes">
+                        @foreach (var entry in dayGroup.OrderBy(e => e.StartTime))
+                        {
+                            <div class="class-item" style="border-left-color: @entry.Color">
+                                <div class="class-info">
+                                    <div class="class-header">
+                                        <span class="class-subject-name">@entry.Subject</span>
+                                        <span class="class-time-range">
+                                            @entry.StartTime.ToString("HH:mm") - @entry.EndTime.ToString("HH:mm")
+                                        </span>
+                                    </div>
+                                    <div class="class-details">
+                                        @if (!string.IsNullOrEmpty(entry.Teacher))
+                                        {
+                                            <span class="class-teacher">👨‍🏫 @entry.Teacher</span>
+                                        }
+                                        @if (!string.IsNullOrEmpty(entry.Room))
+                                        {
+                                            <span class="class-room-info">🏫 @entry.Room</span>
+                                        }
+                                    </div>
+                                </div>
+                                <div class="class-actions">
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => EditClass(entry)">
+                                        ✏️
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteClass(entry)">
+                                        🗑️
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Class Modal -->
+<div class="modal fade @(IsModalVisible ? "show d-block" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    @if (IsEditMode)
+                    {
+                        <span>✏️ Edit Class</span>
+                    }
+                    else
+                    {
+                        <span>➕ Add Class</span>
+                    }
+                </h5>
+                <button type="button" class="btn-close" @onclick="CloseModal"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Subject *</label>
+                    <input type="text" class="form-control" @bind="EditingClass.Subject" placeholder="e.g., Mathematics" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Teacher</label>
+                    <input type="text" class="form-control" @bind="EditingClass.Teacher" placeholder="e.g., Ms. Johnson" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Room</label>
+                    <input type="text" class="form-control" @bind="EditingClass.Room" placeholder="e.g., Room 101" />
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Day *</label>
+                        <select class="form-select" @bind="EditingClass.Day">
+                            @foreach (var day in Enum.GetValues<DayOfWeek>().Where(d => d != DayOfWeek.Sunday && d != DayOfWeek.Saturday))
+                            {
+                                <option value="@day">@day.ToString()</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Week *</label>
+                        <select class="form-select" @bind="EditingClass.Week">
+                            <option value="1">📅 Week 1</option>
+                            <option value="2">📅 Week 2</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Color</label>
+                        <input type="color" class="form-control form-control-color" @bind="EditingClass.Color" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Start Time *</label>
+                        <input type="time" class="form-control" @bind="StartTimeDateTime" />
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">End Time *</label>
+                        <input type="time" class="form-control" @bind="EndTimeDateTime" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                <button type="button" class="btn btn-primary" @onclick="SaveClass" disabled="@(!IsFormValid)">
+                    @if (IsEditMode)
+                    {
+                        <span>💾 Save Changes</span>
+                    }
+                    else
+                    {
+                        <span>➕ Add Class</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<TimetableEntry> _timetable = new();
+    private bool IsModalVisible = false;
+    private bool IsEditMode = false;
+    private TimetableEntry EditingClass = new();
+    private TimetableEntry? _originalClass = null;
+    private string SelectedWeek = "1";
+
+    private DateTime StartTimeDateTime
+    {
+        get => DateTime.Today.Add(EditingClass.StartTime.ToTimeSpan());
+        set
+        {
+            EditingClass.StartTime = TimeOnly.FromDateTime(value);
+            StateHasChanged();
+        }
+    }
+
+    private DateTime EndTimeDateTime
+    {
+        get => DateTime.Today.Add(EditingClass.EndTime.ToTimeSpan());
+        set
+        {
+            EditingClass.EndTime = TimeOnly.FromDateTime(value);
+            StateHasChanged();
+        }
+    }
+
+    private bool IsFormValid =>
+        !string.IsNullOrWhiteSpace(EditingClass.Subject) &&
+        EditingClass.StartTime < EditingClass.EndTime;
+
+    protected override void OnInitialized()
+    {
+        LoadSampleTimetable();
+    }
+
+    private void LoadSampleTimetable()
+    {
+        _timetable = new List<TimetableEntry>
+        {
+            // Week 1 Classes
+            new() { Subject = "Mathematics", Teacher = "Ms. Johnson", Room = "Room 101", Day = DayOfWeek.Monday, StartTime = new TimeOnly(9, 0), EndTime = new TimeOnly(10, 0), Color = "#e74c3c", Week = "1" },
+            new() { Subject = "English Literature", Teacher = "Mr. Smith", Room = "Room 205", Day = DayOfWeek.Monday, StartTime = new TimeOnly(10, 15), EndTime = new TimeOnly(11, 15), Color = "#3498db", Week = "1" },
+            new() { Subject = "Chemistry", Teacher = "Dr. Brown", Room = "Lab 1", Day = DayOfWeek.Monday, StartTime = new TimeOnly(11, 30), EndTime = new TimeOnly(12, 30), Color = "#27ae60", Week = "1" },
+
+            new() { Subject = "Physics", Teacher = "Prof. Wilson", Room = "Room 301", Day = DayOfWeek.Tuesday, StartTime = new TimeOnly(9, 0), EndTime = new TimeOnly(10, 0), Color = "#9b59b6", Week = "1" },
+            new() { Subject = "History", Teacher = "Ms. Davis", Room = "Room 102", Day = DayOfWeek.Tuesday, StartTime = new TimeOnly(10, 15), EndTime = new TimeOnly(11, 15), Color = "#f39c12", Week = "1" },
+
+            new() { Subject = "Biology", Teacher = "Dr. Garcia", Room = "Lab 2", Day = DayOfWeek.Wednesday, StartTime = new TimeOnly(9, 0), EndTime = new TimeOnly(10, 0), Color = "#1abc9c", Week = "1" },
+            new() { Subject = "Mathematics", Teacher = "Ms. Johnson", Room = "Room 101", Day = DayOfWeek.Wednesday, StartTime = new TimeOnly(10, 15), EndTime = new TimeOnly(11, 15), Color = "#e74c3c", Week = "1" },
+
+            new() { Subject = "Art", Teacher = "Mr. Martinez", Room = "Art Studio", Day = DayOfWeek.Thursday, StartTime = new TimeOnly(9, 0), EndTime = new TimeOnly(10, 30), Color = "#e67e22", Week = "1" },
+            new() { Subject = "Physical Education", Teacher = "Coach Thompson", Room = "Gymnasium", Day = DayOfWeek.Thursday, StartTime = new TimeOnly(11, 0), EndTime = new TimeOnly(12, 0), Color = "#2ecc71", Week = "1" },
+
+            new() { Subject = "Computer Science", Teacher = "Mr. Lee", Room = "Computer Lab", Day = DayOfWeek.Friday, StartTime = new TimeOnly(9, 0), EndTime = new TimeOnly(10, 0), Color = "#34495e", Week = "1" },
+            new() { Subject = "French", Teacher = "Mme. Dubois", Room = "Room 303", Day = DayOfWeek.Friday, StartTime = new TimeOnly(10, 15), EndTime = new TimeOnly(11, 15), Color = "#8e44ad", Week = "1" },
+
+            // Week 2 Classes - Different schedule
+            new() { Subject = "Advanced Mathematics", Teacher = "Ms. Johnson", Room = "Room 101", Day = DayOfWeek.Monday, StartTime = new TimeOnly(9, 0), EndTime = new TimeOnly(10, 0), Color = "#e74c3c", Week = "2" },
+            new() { Subject = "Creative Writing", Teacher = "Mr. Smith", Room = "Room 205", Day = DayOfWeek.Monday, StartTime = new TimeOnly(10, 15), EndTime = new TimeOnly(11, 15), Color = "#3498db", Week = "2" },
+            new() { Subject = "Organic Chemistry", Teacher = "Dr. Brown", Room = "Lab 1", Day = DayOfWeek.Monday, StartTime = new TimeOnly(11, 30), EndTime = new TimeOnly(12, 30), Color = "#27ae60", Week = "2" },
+
+            new() { Subject = "Quantum Physics", Teacher = "Prof. Wilson", Room = "Room 301", Day = DayOfWeek.Tuesday, StartTime = new TimeOnly(9, 0), EndTime = new TimeOnly(10, 0), Color = "#9b59b6", Week = "2" },
+            new() { Subject = "World History", Teacher = "Ms. Davis", Room = "Room 102", Day = DayOfWeek.Tuesday, StartTime = new TimeOnly(10, 15), EndTime = new TimeOnly(11, 15), Color = "#f39c12", Week = "2" },
+            new() { Subject = "Geography", Teacher = "Mr. Parker", Room = "Room 204", Day = DayOfWeek.Tuesday, StartTime = new TimeOnly(14, 0), EndTime = new TimeOnly(15, 0), Color = "#16a085", Week = "2" },
+
+            new() { Subject = "Molecular Biology", Teacher = "Dr. Garcia", Room = "Lab 2", Day = DayOfWeek.Wednesday, StartTime = new TimeOnly(9, 0), EndTime = new TimeOnly(10, 0), Color = "#1abc9c", Week = "2" },
+            new() { Subject = "Statistics", Teacher = "Ms. Johnson", Room = "Room 101", Day = DayOfWeek.Wednesday, StartTime = new TimeOnly(10, 15), EndTime = new TimeOnly(11, 15), Color = "#e74c3c", Week = "2" },
+
+            new() { Subject = "Digital Art", Teacher = "Mr. Martinez", Room = "Art Studio", Day = DayOfWeek.Thursday, StartTime = new TimeOnly(9, 0), EndTime = new TimeOnly(10, 30), Color = "#e67e22", Week = "2" },
+            new() { Subject = "Team Sports", Teacher = "Coach Thompson", Room = "Gymnasium", Day = DayOfWeek.Thursday, StartTime = new TimeOnly(11, 0), EndTime = new TimeOnly(12, 0), Color = "#2ecc71", Week = "2" },
+
+            new() { Subject = "Web Development", Teacher = "Mr. Lee", Room = "Computer Lab", Day = DayOfWeek.Friday, StartTime = new TimeOnly(9, 0), EndTime = new TimeOnly(10, 0), Color = "#34495e", Week = "2" },
+            new() { Subject = "Spanish", Teacher = "Señora Rodriguez", Room = "Room 303", Day = DayOfWeek.Friday, StartTime = new TimeOnly(10, 15), EndTime = new TimeOnly(11, 15), Color = "#8e44ad", Week = "2" },
+        };
+    }
+
+    private TimetableEntry? GetClassAtTime(DayOfWeek day, TimeOnly time)
+    {
+        // Check if any class overlaps with this hour slot (time to time+1 hour)
+        var hourStart = time;
+        var hourEnd = time.AddHours(1);
+
+        return _timetable.FirstOrDefault(t => t.Day == day && t.Week == SelectedWeek &&
+            t.StartTime < hourEnd && t.EndTime > hourStart);
+    }
+
+    private void SelectWeek(string week)
+    {
+        SelectedWeek = week;
+        StateHasChanged();
+    }
+
+    private void SelectWeek1()
+    {
+        SelectWeek("1");
+    }
+
+    private void SelectWeek2()
+    {
+        SelectWeek("2");
+    }
+
+    private void ShowAddModal(DayOfWeek? day = null, TimeOnly? startTime = null)
+    {
+        IsEditMode = false;
+        EditingClass = new TimetableEntry
+        {
+            Day = day ?? DayOfWeek.Monday,
+            StartTime = startTime ?? new TimeOnly(9, 0),
+            EndTime = (startTime ?? new TimeOnly(9, 0)).AddHours(1),
+            Color = "#667eea",
+            Week = SelectedWeek // Set the week for new classes
+        };
+        _originalClass = null;
+        IsModalVisible = true;
+        StateHasChanged();
+    }
+
+    private void EditClass(TimetableEntry classEntry)
+    {
+        IsEditMode = true;
+        _originalClass = classEntry;
+        EditingClass = new TimetableEntry
+        {
+            Id = classEntry.Id,
+            Subject = classEntry.Subject,
+            Teacher = classEntry.Teacher,
+            Room = classEntry.Room,
+            Day = classEntry.Day,
+            StartTime = classEntry.StartTime,
+            EndTime = classEntry.EndTime,
+            Color = classEntry.Color,
+            Week = classEntry.Week
+        };
+        IsModalVisible = true;
+        StateHasChanged();
+    }
+
+    private void SaveClass()
+    {
+        if (!IsFormValid) return;
+
+        if (IsEditMode && _originalClass != null)
+        {
+            // Update existing class
+            _originalClass.Subject = EditingClass.Subject;
+            _originalClass.Teacher = EditingClass.Teacher;
+            _originalClass.Room = EditingClass.Room;
+            _originalClass.Day = EditingClass.Day;
+            _originalClass.StartTime = EditingClass.StartTime;
+            _originalClass.EndTime = EditingClass.EndTime;
+            _originalClass.Color = EditingClass.Color;
+            _originalClass.Week = EditingClass.Week;
+        }
+        else
+        {
+            // Add new class
+            _timetable.Add(EditingClass);
+        }
+
+        CloseModal();
+        StateHasChanged();
+    }
+
+    private void DeleteClass(TimetableEntry classEntry)
+    {
+        _timetable.Remove(classEntry);
+        StateHasChanged();
+    }
+
+    private void CloseModal()
+    {
+        IsModalVisible = false;
+        EditingClass = new TimetableEntry();
+        _originalClass = null;
+        StateHasChanged();
+    }
+
+    public class TimetableEntry
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public string Subject { get; set; } = "";
+        public string Teacher { get; set; } = "";
+        public string Room { get; set; } = "";
+        public DayOfWeek Day { get; set; }
+        public TimeOnly StartTime { get; set; }
+        public TimeOnly EndTime { get; set; }
+        public string Color { get; set; } = "#667eea";
+        public string Week { get; set; } = "1"; // Week 1 or Week 2
+    }
+}

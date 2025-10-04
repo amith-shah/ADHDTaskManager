@@ -1,0 +1,184 @@
+@inject ITaskService TaskService
+
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <button class="navbar-toggler" @onclick="ToggleNavMenu" aria-expanded="@_collapseNavMenu" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass nav-scrollable" @onclick="CollapseNavMenu">
+    <nav class="nav flex-column">
+
+        <!-- Dashboard -->
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">
+                <span class="nav-icon">📊</span> Dashboard
+            </NavLink>
+        </div>
+
+        <!-- Tasks -->
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="/tasks">
+                <span class="nav-icon">✅</span> Tasks
+                @if (_pendingTaskCount > 0)
+                {
+                    <span class="badge bg-primary ms-2">@_pendingTaskCount</span>
+                }
+            </NavLink>
+        </div>
+
+        <!-- Calendar -->
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="/calendar">
+                <span class="nav-icon">📅</span> Calendar
+            </NavLink>
+        </div>
+
+        <!-- Focus -->
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="/focus">
+                <span class="nav-icon">🎯</span> Focus Timer
+            </NavLink>
+        </div>
+
+        <!-- Analytics -->
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="/analytics">
+                <span class="nav-icon">📈</span> Progress
+            </NavLink>
+        </div>
+
+        <!-- Settings -->
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="/settings">
+                <span class="nav-icon">⚙️</span> Settings
+            </NavLink>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="nav-section-header">
+            <small class="text-muted px-3 mt-3 mb-2 d-block">Quick Actions</small>
+        </div>
+
+        <div class="nav-item px-3">
+            <button class="nav-link btn btn-link w-100 text-start" @onclick="ShowQuickAdd">
+                <span class="nav-icon">➕</span> Add Task
+            </button>
+        </div>
+
+        <div class="nav-item px-3">
+            <button class="nav-link btn btn-link w-100 text-start" @onclick="SyncWithTeams">
+                <span class="nav-icon">🔄</span> Sync Teams
+                @if (_isSyncing)
+                {
+                    <div class="spinner-border spinner-border-sm ms-2" role="status">
+                        <span class="visually-hidden">Syncing...</span>
+                    </div>
+                }
+            </button>
+        </div>
+
+        <!-- Today's Focus -->
+        <div class="nav-section-header">
+            <small class="text-muted px-3 mt-3 mb-2 d-block">Today's Focus</small>
+        </div>
+
+        <div class="px-3">
+            <div class="today-focus-card">
+                @if (_todayTasks.Any())
+                {
+                    @foreach (var task in _todayTasks.Take(3))
+                    {
+                        <div class="focus-task-item priority-@task.Priority.ToString().ToLower()">
+                            <div class="task-title">@task.Title</div>
+                            <div class="task-time">
+                                @if (task.EstimatedDuration.HasValue)
+                                {
+                                    <small>@FormatDuration(task.EstimatedDuration.Value)</small>
+                                }
+                            </div>
+                        </div>
+                    }
+                    @if (_todayTasks.Count > 3)
+                    {
+                        <small class="text-muted">+@(_todayTasks.Count - 3) more tasks</small>
+                    }
+                }
+                else
+                {
+                    <div class="no-tasks">
+                        <small class="text-muted">No tasks scheduled for today</small>
+                    </div>
+                }
+            </div>
+        </div>
+
+    </nav>
+</div>
+
+@code {
+    private bool _collapseNavMenu = true;
+    private int _pendingTaskCount = 0;
+    private bool _isSyncing = false;
+    private List<TaskItem> _todayTasks = new();
+
+    private string? NavMenuCssClass => _collapseNavMenu ? "collapse" : null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTaskCounts();
+        await LoadTodayTasks();
+    }
+
+    private void ToggleNavMenu()
+    {
+        _collapseNavMenu = !_collapseNavMenu;
+    }
+
+    private void CollapseNavMenu()
+    {
+        _collapseNavMenu = true;
+    }
+
+    private async Task LoadTaskCounts()
+    {
+        var tasks = await TaskService.GetAllTasksAsync();
+        _pendingTaskCount = tasks.Count(t => t.Status == TaskStatus.Pending || t.Status == TaskStatus.InProgress);
+    }
+
+    private async Task LoadTodayTasks()
+    {
+        _todayTasks = await TaskService.GetTasksByDateAsync(DateTime.Today);
+    }
+
+    private async Task ShowQuickAdd()
+    {
+        // This will be implemented when we create the quick add component
+        await Task.CompletedTask;
+    }
+
+    private async Task SyncWithTeams()
+    {
+        _isSyncing = true;
+        StateHasChanged();
+
+        // Simulate sync delay
+        await Task.Delay(2000);
+
+        _isSyncing = false;
+        await LoadTaskCounts();
+        await LoadTodayTasks();
+        StateHasChanged();
+    }
+
+    private string FormatDuration(TimeSpan duration)
+    {
+        if (duration.TotalHours >= 1)
+        {
+            return $"{duration.TotalHours:F1}h";
+        }
+        return $"{duration.TotalMinutes:F0}m";
+    }
+}

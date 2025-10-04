@@ -1,0 +1,502 @@
+@page "/tasks"
+@inject ITaskService TaskService
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>Tasks - ADHD Helper</PageTitle>
+
+<div class="tasks-container">
+
+    <!-- Header Section -->
+    <div class="tasks-header">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h1><i class="bi-check2-square text-primary"></i> My Tasks</h1>
+                <p class="text-muted">Organize and prioritize your tasks</p>
+            </div>
+            <div class="col-md-6 text-end">
+                <div class="task-actions">
+                    <button class="btn btn-outline-secondary me-2" @onclick="ToggleView">
+                        <i class="bi-@(_listView ? "grid" : "list")"></i>
+                        @(_listView ? "Grid View" : "List View")
+                    </button>
+                    <button class="btn btn-primary" @onclick="ShowCreateTaskModal">
+                        <i class="bi-plus-circle me-2"></i>
+                        New Task
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters and Search -->
+    <div class="task-filters">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="search-box">
+                    <input type="text" class="form-control" placeholder="🔍 Search tasks..."
+                           @bind="_searchTerm" @onkeyup="OnSearchChanged" />
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div class="filter-buttons">
+                    <button class="btn btn-filter @(_selectedStatus == null ? "active" : "")"
+                            @onclick="() => FilterByStatus(null)">
+                        All (@_allTasks.Count)
+                    </button>
+                    <button class="btn btn-filter @(_selectedStatus == TaskStatus.Pending ? "active" : "")"
+                            @onclick="() => FilterByStatus(TaskStatus.Pending)">
+                        Pending (@_allTasks.Count(t => t.Status == TaskStatus.Pending))
+                    </button>
+                    <button class="btn btn-filter @(_selectedStatus == TaskStatus.InProgress ? "active" : "")"
+                            @onclick="() => FilterByStatus(TaskStatus.InProgress)">
+                        In Progress (@_allTasks.Count(t => t.Status == TaskStatus.InProgress))
+                    </button>
+                    <button class="btn btn-filter @(_selectedStatus == TaskStatus.Completed ? "active" : "")"
+                            @onclick="() => FilterByStatus(TaskStatus.Completed)">
+                        Completed (@_allTasks.Count(t => t.Status == TaskStatus.Completed))
+                    </button>
+                </div>
+                <div class="priority-filters ms-3">
+                    <select class="form-select" @bind="_selectedPriority">
+                        <option value="">All Priorities</option>
+                        <option value="@TaskPriority.Urgent">🔴 Urgent</option>
+                        <option value="@TaskPriority.High">🟠 High</option>
+                        <option value="@TaskPriority.Medium">🟡 Medium</option>
+                        <option value="@TaskPriority.Low">🟢 Low</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task List/Grid -->
+    <div class="task-content">
+        @if (_filteredTasks.Any())
+        {
+            @if (_listView)
+            {
+                <div class="task-list-container" @ondrop="OnDrop" @ondragover="OnDragOver">
+                    @foreach (var task in _filteredTasks)
+                    {
+                        <div class="task-item priority-@task.Priority.ToString().ToLower() status-@task.Status.ToString().ToLower()"
+                             draggable="true"
+                             @ondragstart="@(e => OnDragStart(e, task))"
+                             @ondragend="OnDragEnd"
+                             data-task-id="@task.Id">
+
+                            <div class="task-checkbox">
+                                <input type="checkbox"
+                                       checked="@(task.Status == TaskStatus.Completed)"
+                                       @onchange="@(async () => await ToggleTaskCompletion(task))" />
+                            </div>
+
+                            <div class="task-content-area" @onclick="() => EditTask(task)">
+                                <div class="task-header">
+                                    <h4 class="task-title">@task.Title</h4>
+                                    <div class="task-badges">
+                                        <span class="priority-badge priority-@task.Priority.ToString().ToLower()">
+                                            @GetPriorityIcon(task.Priority) @task.Priority
+                                        </span>
+                                        @if (task.IsFromTeams)
+                                        {
+                                            <span class="teams-badge">📚 Teams</span>
+                                        }
+                                        @if (task.DueDate.HasValue && task.DueDate < DateTime.Now)
+                                        {
+                                            <span class="overdue-badge">⏰ Overdue</span>
+                                        }
+                                    </div>
+                                </div>
+
+                                @if (!string.IsNullOrEmpty(task.Description))
+                                {
+                                    <p class="task-description">@task.Description</p>
+                                }
+
+                                <div class="task-meta">
+                                    <div class="meta-row">
+                                        @if (task.DueDate.HasValue)
+                                        {
+                                            <span class="meta-item">
+                                                <i class="bi-calendar-event"></i>
+                                                Due: @task.DueDate.Value.ToString("MMM dd, h:mm tt")
+                                            </span>
+                                        }
+                                        @if (task.EstimatedDuration.HasValue)
+                                        {
+                                            <span class="meta-item">
+                                                <i class="bi-clock"></i>
+                                                @FormatDuration(task.EstimatedDuration.Value)
+                                            </span>
+                                        }
+                                        @if (!string.IsNullOrEmpty(task.Category))
+                                        {
+                                            <span class="meta-item">
+                                                <i class="bi-folder"></i>
+                                                @task.Category
+                                            </span>
+                                        }
+                                    </div>
+                                    @if (task.Tags.Any())
+                                    {
+                                        <div class="task-tags">
+                                            @foreach (var tag in task.Tags)
+                                            {
+                                                <span class="tag">@tag</span>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+
+                            <div class="task-actions">
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-primary"
+                                            @onclick="() => EditTask(task)"
+                                            @onclick:stopPropagation="true">
+                                        <i class="bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            @onclick="() => DeleteTask(task)"
+                                            @onclick:stopPropagation="true">
+                                        <i class="bi-trash"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                            @onclick="() => ScheduleTask(task)"
+                                            @onclick:stopPropagation="true">
+                                        <i class="bi-calendar-plus"></i>
+                                    </button>
+                                </div>
+                                <div class="drag-handle">
+                                    <i class="bi-grip-vertical"></i>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <!-- Grid View -->
+                <div class="task-grid">
+                    @foreach (var task in _filteredTasks)
+                    {
+                        <div class="task-card priority-@task.Priority.ToString().ToLower() status-@task.Status.ToString().ToLower()"
+                             @onclick="() => EditTask(task)">
+
+                            <div class="card-header">
+                                <div class="task-checkbox">
+                                    <input type="checkbox"
+                                           checked="@(task.Status == TaskStatus.Completed)"
+                                           @onchange="@(async () => await ToggleTaskCompletion(task))"
+                                           @onclick:stopPropagation="true" />
+                                </div>
+                                <span class="priority-indicator priority-@task.Priority.ToString().ToLower()">
+                                    @GetPriorityIcon(task.Priority)
+                                </span>
+                            </div>
+
+                            <div class="card-body">
+                                <h5 class="card-title">@task.Title</h5>
+                                @if (!string.IsNullOrEmpty(task.Description))
+                                {
+                                    <p class="card-description">@TruncateText(task.Description, 100)</p>
+                                }
+
+                                <div class="card-meta">
+                                    @if (task.DueDate.HasValue)
+                                    {
+                                        <div class="meta-item">
+                                            <small class="@(task.DueDate < DateTime.Now ? "text-danger" : "text-muted")">
+                                                Due: @task.DueDate.Value.ToString("MMM dd")
+                                            </small>
+                                        </div>
+                                    }
+                                    @if (task.EstimatedDuration.HasValue)
+                                    {
+                                        <div class="meta-item">
+                                            <small class="text-muted">@FormatDuration(task.EstimatedDuration.Value)</small>
+                                        </div>
+                                    }
+                                </div>
+
+                                @if (task.Tags.Any())
+                                {
+                                    <div class="card-tags">
+                                        @foreach (var tag in task.Tags.Take(3))
+                                        {
+                                            <span class="tag-sm">@tag</span>
+                                        }
+                                        @if (task.Tags.Count > 3)
+                                        {
+                                            <span class="tag-sm more">+@(task.Tags.Count - 3)</span>
+                                        }
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="card-footer">
+                                @if (task.IsFromTeams)
+                                {
+                                    <span class="teams-badge-sm">Teams</span>
+                                }
+                                <div class="card-actions ms-auto">
+                                    <button class="btn btn-sm btn-link"
+                                            @onclick="() => EditTask(task)"
+                                            @onclick:stopPropagation="true">
+                                        <i class="bi-pencil"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        }
+        else
+        {
+            <div class="empty-state">
+                @if (!string.IsNullOrEmpty(_searchTerm))
+                {
+                    <div class="empty-icon">🔍</div>
+                    <h3>No tasks found</h3>
+                    <p>No tasks match your search criteria.</p>
+                    <button class="btn btn-outline-primary" @onclick="ClearSearch">Clear Search</button>
+                }
+                else
+                {
+                    <div class="empty-icon">📝</div>
+                    <h3>No tasks yet</h3>
+                    <p>Create your first task to get started with better organization.</p>
+                    <button class="btn btn-primary" @onclick="ShowCreateTaskModal">Create Task</button>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- Task Statistics -->
+    @if (_allTasks.Any())
+    {
+        <div class="task-stats">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-number text-success">@_allTasks.Count(t => t.Status == TaskStatus.Completed)</div>
+                        <div class="stat-label">Completed</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-number text-primary">@_allTasks.Count(t => t.Status == TaskStatus.InProgress)</div>
+                        <div class="stat-label">In Progress</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-number text-warning">@_allTasks.Count(t => t.Status == TaskStatus.Pending)</div>
+                        <div class="stat-label">Pending</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-number text-danger">@_allTasks.Count(t => t.DueDate < DateTime.Now && t.Status != TaskStatus.Completed)</div>
+                        <div class="stat-label">Overdue</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<TaskItem> _allTasks = new();
+    private List<TaskItem> _filteredTasks = new();
+    private string _searchTerm = string.Empty;
+    private TaskStatus? _selectedStatus = null;
+    private TaskPriority? _selectedPriority = null;
+    private bool _listView = true;
+
+    // Drag and drop state
+    private TaskItem? _draggedTask = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTasks();
+        FilterTasks();
+    }
+
+    private async Task LoadTasks()
+    {
+        _allTasks = await TaskService.GetAllTasksAsync();
+    }
+
+    private void FilterTasks()
+    {
+        _filteredTasks = _allTasks.AsEnumerable();
+
+        // Apply status filter
+        if (_selectedStatus.HasValue)
+        {
+            _filteredTasks = _filteredTasks.Where(t => t.Status == _selectedStatus.Value);
+        }
+
+        // Apply priority filter
+        if (_selectedPriority.HasValue)
+        {
+            _filteredTasks = _filteredTasks.Where(t => t.Priority == _selectedPriority.Value);
+        }
+
+        // Apply search filter
+        if (!string.IsNullOrEmpty(_searchTerm))
+        {
+            _filteredTasks = _filteredTasks.Where(t =>
+                t.Title.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                t.Description.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                t.Tags.Any(tag => tag.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        _filteredTasks = _filteredTasks.OrderBy(t => t.SortOrder).ToList();
+    }
+
+    private async Task OnSearchChanged()
+    {
+        await Task.Delay(300); // Debounce
+        FilterTasks();
+        StateHasChanged();
+    }
+
+    private void FilterByStatus(TaskStatus? status)
+    {
+        _selectedStatus = status;
+        FilterTasks();
+        StateHasChanged();
+    }
+
+    private void OnPriorityFilterChanged(ChangeEventArgs e)
+    {
+        if (Enum.TryParse<TaskPriority>(e.Value?.ToString(), out var priority))
+        {
+            _selectedPriority = priority;
+        }
+        else
+        {
+            _selectedPriority = null;
+        }
+        FilterTasks();
+        StateHasChanged();
+    }
+
+    private void ToggleView()
+    {
+        _listView = !_listView;
+    }
+
+    private void ClearSearch()
+    {
+        _searchTerm = string.Empty;
+        FilterTasks();
+        StateHasChanged();
+    }
+
+    private async Task ToggleTaskCompletion(TaskItem task)
+    {
+        task.Status = task.Status == TaskStatus.Completed ? TaskStatus.Pending : TaskStatus.Completed;
+        if (task.Status == TaskStatus.Completed)
+        {
+            task.CompletedAt = DateTime.Now;
+            await JSRuntime.InvokeVoidAsync("showTaskCompletionAnimation", task.Id.ToString());
+        }
+        else
+        {
+            task.CompletedAt = null;
+        }
+
+        await TaskService.UpdateTaskAsync(task);
+        FilterTasks();
+        StateHasChanged();
+    }
+
+    private async Task ShowCreateTaskModal()
+    {
+        await JSRuntime.InvokeVoidAsync("showCreateTaskModal");
+    }
+
+    private async Task EditTask(TaskItem task)
+    {
+        await JSRuntime.InvokeVoidAsync("showEditTaskModal", task.Id.ToString());
+    }
+
+    private async Task DeleteTask(TaskItem task)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete '{task.Title}'?");
+        if (confirmed)
+        {
+            await TaskService.DeleteTaskAsync(task.Id);
+            await LoadTasks();
+            FilterTasks();
+            StateHasChanged();
+        }
+    }
+
+    private async Task ScheduleTask(TaskItem task)
+    {
+        await JSRuntime.InvokeVoidAsync("showScheduleTaskModal", task.Id.ToString());
+    }
+
+    // Drag and drop handlers
+    private void OnDragStart(DragEventArgs e, TaskItem task)
+    {
+        _draggedTask = task;
+        e.DataTransfer?.SetData("text/plain", task.Id.ToString());
+    }
+
+    private void OnDragEnd(DragEventArgs e)
+    {
+        _draggedTask = null;
+    }
+
+    private void OnDragOver(DragEventArgs e)
+    {
+        e.DataTransfer!.DropEffect = "move";
+        e.DataTransfer.EffectAllowed = "move";
+    }
+
+    private async Task OnDrop(DragEventArgs e)
+    {
+        if (_draggedTask != null)
+        {
+            // Here you would implement the reordering logic
+            // For now, just log the action
+            await JSRuntime.InvokeVoidAsync("console.log", $"Dropped task: {_draggedTask.Title}");
+        }
+    }
+
+    // Helper methods
+    private string GetPriorityIcon(TaskPriority priority)
+    {
+        return priority switch
+        {
+            TaskPriority.Urgent => "🔴",
+            TaskPriority.High => "🟠",
+            TaskPriority.Medium => "🟡",
+            TaskPriority.Low => "🟢",
+            _ => "⚪"
+        };
+    }
+
+    private string FormatDuration(TimeSpan duration)
+    {
+        if (duration.TotalHours >= 1)
+        {
+            return $"{duration.TotalHours:F1}h";
+        }
+        return $"{duration.TotalMinutes:F0}m";
+    }
+
+    private string TruncateText(string text, int maxLength)
+    {
+        if (text.Length <= maxLength) return text;
+        return text.Substring(0, maxLength) + "...";
+    }
+}

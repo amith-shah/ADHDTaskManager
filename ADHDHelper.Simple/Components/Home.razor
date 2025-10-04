@@ -1,0 +1,645 @@
+@page "/"
+@rendermode InteractiveServer
+
+<PageTitle>Dashboard - ADHD Helper</PageTitle>
+
+<div class="dashboard-container">
+    <!-- Welcome Section -->
+    <div class="welcome-section">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="dashboard-title">
+                    <span class="greeting">Good @GetTimeOfDay()! ☀️</span>
+                    <span class="motivational">Ready to tackle your goals?</span>
+                </h1>
+                <p class="dashboard-subtitle">@DateTime.Now.ToString("dddd, MMMM dd, yyyy")</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="quick-stats">
+                    <div class="stat-item">
+                        <div class="stat-number">@_completedToday</div>
+                        <div class="stat-label">Completed Today</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">@_pendingTasks</div>
+                        <div class="stat-label">Pending</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions-bar">
+        <button class="btn btn-primary btn-lg" @onclick="CreateNewTask">
+            ➕ Quick Add Task
+        </button>
+        <button class="btn btn-outline-secondary" @onclick="StartFocus">
+            🎯 Start Focus Session
+        </button>
+        <button class="btn btn-outline-info" @onclick="SyncTasks">
+            🔄 Sync Teams
+        </button>
+    </div>
+
+    <!-- Tasks Section -->
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h3>📝 Today's Tasks</h3>
+                    <small class="text-muted">@GetFilteredAndSortedTasks().Count() tasks</small>
+                </div>
+
+                <!-- Filtering and Sorting Controls -->
+                <div class="task-controls">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-md-4">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">🔍</span>
+                                <input type="text" class="form-control" placeholder="Search tasks..."
+                                       @bind="_searchFilter" @oninput="OnSearchChanged" />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select form-select-sm" @bind="_priorityFilter">
+                                <option value="">All Priorities</option>
+                                <option value="High">🔴 High Priority</option>
+                                <option value="Medium">🟡 Medium Priority</option>
+                                <option value="Low">🟢 Low Priority</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select form-select-sm" @bind="_statusFilter">
+                                <option value="">All Tasks</option>
+                                <option value="pending">⏳ Pending</option>
+                                <option value="completed">✅ Completed</option>
+                                <option value="teams">📚 Teams Tasks</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select form-select-sm" @bind="_sortOption">
+                                <option value="priority">Sort by Priority</option>
+                                <option value="dueDate">Sort by Due Date</option>
+                                <option value="title">Sort by Title</option>
+                                <option value="created">Sort by Created</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    @if (_tasks.Any())
+                    {
+                        <div class="task-list-compact">
+                            @foreach (var task in GetFilteredAndSortedTasks())
+                            {
+                                <div class="task-item-compact priority-@task.Priority.ToLower() @(task.IsCompleted ? "completed" : "")"
+                                     @onclick="() => ToggleTask(task)">
+                                    <div class="task-checkbox">
+                                        <input type="checkbox" checked="@task.IsCompleted" @onclick:stopPropagation="true" />
+                                    </div>
+                                    <div class="task-content">
+                                        <div class="task-title">@task.Title</div>
+                                        @if (!string.IsNullOrEmpty(task.Description))
+                                        {
+                                            <div class="task-description">@task.Description</div>
+                                        }
+                                        <div class="task-meta">
+                                            <span class="priority-badge priority-@task.Priority.ToLower()">
+                                                @GetPriorityIcon(task.Priority) @task.Priority
+                                            </span>
+                                            @if (task.IsFromTeams)
+                                            {
+                                                <span class="teams-badge">📚 Teams</span>
+                                            }
+                                            @if (task.DueDate.HasValue)
+                                            {
+                                                <span class="due-date-badge">📅 Due: @task.DueDate.Value.ToString("MMM dd")</span>
+                                            }
+                                        </div>
+                                    </div>
+                                    <div class="task-actions">
+                                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => EditTask(task)" @onclick:stopPropagation="true">
+                                            ✏️
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteTask(task)" @onclick:stopPropagation="true">
+                                            🗑️
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="empty-state">
+                            <div class="empty-icon">📅</div>
+                            <h4>No tasks yet</h4>
+                            <p>Add your first task to get started!</p>
+                            <button class="btn btn-primary" @onclick="CreateNewTask">Add Task</button>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h3>📊 Today's Progress</h3>
+                </div>
+                <div class="card-body">
+                    <div class="progress-container">
+                        <div class="progress-circle">
+                            <div class="progress-percentage">@_progressPercentage%</div>
+                            <div class="progress-label">Complete</div>
+                        </div>
+                        <div class="progress-stats">
+                            <div class="stat">
+                                <span class="stat-value text-success">@_completedToday</span>
+                                <span class="stat-label">Completed</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-value text-warning">@_pendingTasks</span>
+                                <span class="stat-label">Pending</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- School Timetable -->
+            <div class="dashboard-card mt-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3>📚 @GetScheduleTitle()</h3>
+                    <a href="/timetable" class="btn btn-sm btn-outline-primary">
+                        ⚙️ Manage Schedule
+                    </a>
+                </div>
+                <div class="card-body">
+                    @{
+                        var todayClasses = GetTodayClasses();
+                    }
+                    @if (todayClasses.Any())
+                    {
+                        <div class="timetable-today">
+                            @foreach (var entry in todayClasses)
+                            {
+                                <div class="timetable-entry" style="border-left-color: @entry.Color">
+                                    <div class="timetable-time">
+                                        @entry.StartTime.ToString("HH:mm") - @entry.EndTime.ToString("HH:mm")
+                                    </div>
+                                    <div class="timetable-details">
+                                        <div class="timetable-subject">@entry.Subject</div>
+                                        <div class="timetable-meta">
+                                            @if (!string.IsNullOrEmpty(entry.Teacher))
+                                            {
+                                                <span class="timetable-teacher">👨‍🏫 @entry.Teacher</span>
+                                            }
+                                            @if (!string.IsNullOrEmpty(entry.Room))
+                                            {
+                                                <span class="timetable-room">🏫 @entry.Room</span>
+                                            }
+                                        </div>
+                                    </div>
+                                    <div class="timetable-status">
+                                        @if (IsClassCurrent(entry))
+                                        {
+                                            <span class="badge bg-success">📍 Current</span>
+                                        }
+                                        else if (IsClassNext(entry))
+                                        {
+                                            <span class="badge bg-warning">⏰ Next</span>
+                                        }
+                                        else if (IsClassUpcoming(entry))
+                                        {
+                                            <span class="badge bg-info">⏳ Upcoming</span>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="empty-state">
+                            <div class="empty-icon">📅</div>
+                            <h4>No classes today</h4>
+                            <p>Enjoy your free day or add your timetable!</p>
+                            <a href="/timetable" class="btn btn-primary">Add Schedule</a>
+                        </div>
+                    }
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- Task Edit Modal -->
+<TaskEditModal IsVisible="_showEditModal"
+               IsNewTask="_isNewTask"
+               Task="_selectedTask"
+               OnSave="HandleTaskSave"
+               OnDelete="HandleTaskDelete"
+               OnClose="CloseEditModal" />
+
+@code {
+    public class SimpleTask
+    {
+        public string Title { get; set; } = "";
+        public string? Description { get; set; }
+        public string Priority { get; set; } = "Medium";
+        public bool IsCompleted { get; set; } = false;
+        public bool IsFromTeams { get; set; } = false;
+        public DateTime? DueDate { get; set; }
+        public int EstimatedMinutes { get; set; } = 30;
+        public List<string> Tags { get; set; } = new();
+    }
+
+    public class TimetableEntry
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public string Subject { get; set; } = "";
+        public string Teacher { get; set; } = "";
+        public string Room { get; set; } = "";
+        public DayOfWeek Day { get; set; }
+        public TimeOnly StartTime { get; set; }
+        public TimeOnly EndTime { get; set; }
+        public string Color { get; set; } = "#667eea";
+    }
+
+    private List<SimpleTask> _tasks = new();
+    private int _completedToday = 0;
+    private int _pendingTasks = 0;
+    private int _progressPercentage = 0;
+
+    // Modal state
+    private bool _showEditModal = false;
+    private bool _isNewTask = false;
+    private SimpleTask? _selectedTask = null;
+
+    // Filtering and sorting state
+    private string _searchFilter = "";
+    private string _priorityFilter = "";
+    private string _statusFilter = "";
+    private string _sortOption = "priority";
+
+    // Timetable state
+    private List<TimetableEntry> _timetable = new();
+
+    protected override void OnInitialized()
+    {
+        LoadSampleData();
+        LoadSampleTimetable();
+        UpdateStats();
+    }
+
+    private void LoadSampleData()
+    {
+        _tasks = new List<SimpleTask>
+        {
+            new() {
+                Title = "Complete Math Assignment",
+                Description = "Finish algebra homework problems 1-25 and review for upcoming test",
+                Priority = "High",
+                IsFromTeams = true,
+                DueDate = DateTime.Now.AddDays(2),
+                EstimatedMinutes = 60
+            },
+            new() {
+                Title = "Read Science Chapter",
+                Description = "Chapter 8: Photosynthesis and Cellular Respiration",
+                Priority = "Medium",
+                IsFromTeams = true,
+                DueDate = DateTime.Now.AddDays(3),
+                EstimatedMinutes = 45
+            },
+            new() {
+                Title = "Call Doctor",
+                Description = "Schedule annual checkup appointment",
+                Priority = "Low",
+                EstimatedMinutes = 15
+            },
+            new() {
+                Title = "Grocery Shopping",
+                Description = "Buy ingredients for this week's meal prep",
+                Priority = "Medium",
+                EstimatedMinutes = 30
+            },
+            new() {
+                Title = "Project Presentation",
+                Description = "Prepare slides and practice 10-minute presentation on renewable energy",
+                Priority = "High",
+                DueDate = DateTime.Now.AddDays(1),
+                EstimatedMinutes = 90
+            }
+        };
+    }
+
+    private void UpdateStats()
+    {
+        _completedToday = _tasks.Count(t => t.IsCompleted);
+        _pendingTasks = _tasks.Count(t => !t.IsCompleted);
+        _progressPercentage = _tasks.Any() ? (int)Math.Round((_completedToday / (double)_tasks.Count) * 100) : 0;
+    }
+
+    private async Task ToggleTask(SimpleTask task)
+    {
+        task.IsCompleted = !task.IsCompleted;
+        UpdateStats();
+
+        if (task.IsCompleted)
+        {
+            await ShowCelebration();
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task ShowCelebration()
+    {
+        await Task.Delay(100);
+    }
+
+    private void AddSampleTask()
+    {
+        var sampleTasks = new[]
+        {
+            "Review presentation slides",
+            "Organize desk workspace",
+            "Take a 15-minute break",
+            "Update project timeline",
+            "Send follow-up emails"
+        };
+
+        var random = new Random();
+        var newTask = new SimpleTask
+        {
+            Title = sampleTasks[random.Next(sampleTasks.Length)],
+            Priority = new[] { "Low", "Medium", "High" }[random.Next(3)]
+        };
+
+        _tasks.Add(newTask);
+        UpdateStats();
+        StateHasChanged();
+    }
+
+    private void DeleteTask(SimpleTask task)
+    {
+        _tasks.Remove(task);
+        UpdateStats();
+        StateHasChanged();
+    }
+
+    private async Task StartFocus()
+    {
+        await Task.Delay(100);
+    }
+
+    private async Task SyncTasks()
+    {
+        await Task.Delay(1000);
+        StateHasChanged();
+    }
+
+    private string GetTimeOfDay()
+    {
+        var hour = DateTime.Now.Hour;
+        return hour switch
+        {
+            int h when h < 12 => "Morning",
+            int h when h < 17 => "Afternoon",
+            _ => "Evening"
+        };
+    }
+
+    private string GetPriorityIcon(string priority)
+    {
+        return priority switch
+        {
+            "High" => "🔴",
+            "Medium" => "🟡",
+            "Low" => "🟢",
+            _ => "⚪"
+        };
+    }
+
+
+    // Modal management methods
+    private void EditTask(SimpleTask task)
+    {
+        _selectedTask = task;
+        _isNewTask = false;
+        _showEditModal = true;
+        StateHasChanged();
+    }
+
+    private void CreateNewTask()
+    {
+        _selectedTask = null;
+        _isNewTask = true;
+        _showEditModal = true;
+        StateHasChanged();
+    }
+
+    private async Task HandleTaskSave(SimpleTask editedTask)
+    {
+        if (_isNewTask)
+        {
+            _tasks.Add(editedTask);
+        }
+        else if (_selectedTask != null)
+        {
+            _selectedTask.Title = editedTask.Title;
+            _selectedTask.Description = editedTask.Description;
+            _selectedTask.Priority = editedTask.Priority;
+            _selectedTask.IsFromTeams = editedTask.IsFromTeams;
+            _selectedTask.DueDate = editedTask.DueDate;
+            _selectedTask.EstimatedMinutes = editedTask.EstimatedMinutes;
+            _selectedTask.Tags = new List<string>(editedTask.Tags);
+        }
+
+        UpdateStats();
+        StateHasChanged();
+    }
+
+    private async Task HandleTaskDelete(SimpleTask taskToDelete)
+    {
+        if (_selectedTask != null)
+        {
+            _tasks.Remove(_selectedTask);
+            UpdateStats();
+            StateHasChanged();
+        }
+    }
+
+    private void CloseEditModal()
+    {
+        _showEditModal = false;
+        _selectedTask = null;
+        StateHasChanged();
+    }
+
+    // Filtering and Sorting Methods
+    private IEnumerable<SimpleTask> GetFilteredAndSortedTasks()
+    {
+        var filteredTasks = _tasks.AsEnumerable();
+
+        // Apply search filter
+        if (!string.IsNullOrWhiteSpace(_searchFilter))
+        {
+            filteredTasks = filteredTasks.Where(t =>
+                t.Title.Contains(_searchFilter, StringComparison.OrdinalIgnoreCase) ||
+                (!string.IsNullOrEmpty(t.Description) && t.Description.Contains(_searchFilter, StringComparison.OrdinalIgnoreCase))
+            );
+        }
+
+        // Apply priority filter
+        if (!string.IsNullOrWhiteSpace(_priorityFilter))
+        {
+            filteredTasks = filteredTasks.Where(t => t.Priority == _priorityFilter);
+        }
+
+        // Apply status filter
+        if (!string.IsNullOrWhiteSpace(_statusFilter))
+        {
+            filteredTasks = _statusFilter switch
+            {
+                "pending" => filteredTasks.Where(t => !t.IsCompleted),
+                "completed" => filteredTasks.Where(t => t.IsCompleted),
+                "teams" => filteredTasks.Where(t => t.IsFromTeams),
+                _ => filteredTasks
+            };
+        }
+
+        // Apply sorting
+        filteredTasks = _sortOption switch
+        {
+            "priority" => filteredTasks.OrderBy(t => GetPriorityOrder(t.Priority)),
+            "dueDate" => filteredTasks.OrderBy(t => t.DueDate ?? DateTime.MaxValue),
+            "title" => filteredTasks.OrderBy(t => t.Title),
+            "created" => filteredTasks.Reverse(), // Most recent first
+            _ => filteredTasks.OrderBy(t => GetPriorityOrder(t.Priority))
+        };
+
+        return filteredTasks;
+    }
+
+    private int GetPriorityOrder(string priority)
+    {
+        return priority switch
+        {
+            "High" => 1,
+            "Medium" => 2,
+            "Low" => 3,
+            _ => 4
+        };
+    }
+
+    private void OnSearchChanged(ChangeEventArgs e)
+    {
+        _searchFilter = e.Value?.ToString() ?? "";
+        StateHasChanged();
+    }
+
+    private void OnSortChanged(ChangeEventArgs e)
+    {
+        _sortOption = e.Value?.ToString() ?? "priority";
+        StateHasChanged();
+    }
+
+    // Timetable Methods
+    private void LoadSampleTimetable()
+    {
+        _timetable = new List<TimetableEntry>
+        {
+            new() { Subject = "Mathematics", Teacher = "Ms. Johnson", Room = "Room 101", Day = DayOfWeek.Monday, StartTime = new TimeOnly(9, 0), EndTime = new TimeOnly(10, 0), Color = "#e74c3c" },
+            new() { Subject = "English Literature", Teacher = "Mr. Smith", Room = "Room 205", Day = DayOfWeek.Monday, StartTime = new TimeOnly(10, 15), EndTime = new TimeOnly(11, 15), Color = "#3498db" },
+            new() { Subject = "Chemistry", Teacher = "Dr. Brown", Room = "Lab 1", Day = DayOfWeek.Monday, StartTime = new TimeOnly(11, 30), EndTime = new TimeOnly(12, 30), Color = "#27ae60" },
+
+            new() { Subject = "Physics", Teacher = "Prof. Wilson", Room = "Room 301", Day = DayOfWeek.Tuesday, StartTime = new TimeOnly(9, 0), EndTime = new TimeOnly(10, 0), Color = "#9b59b6" },
+            new() { Subject = "History", Teacher = "Ms. Davis", Room = "Room 102", Day = DayOfWeek.Tuesday, StartTime = new TimeOnly(10, 15), EndTime = new TimeOnly(11, 15), Color = "#f39c12" },
+
+            new() { Subject = "Biology", Teacher = "Dr. Garcia", Room = "Lab 2", Day = DayOfWeek.Wednesday, StartTime = new TimeOnly(9, 0), EndTime = new TimeOnly(10, 0), Color = "#1abc9c" },
+            new() { Subject = "Mathematics", Teacher = "Ms. Johnson", Room = "Room 101", Day = DayOfWeek.Wednesday, StartTime = new TimeOnly(10, 15), EndTime = new TimeOnly(11, 15), Color = "#e74c3c" },
+
+            new() { Subject = "Art", Teacher = "Mr. Martinez", Room = "Art Studio", Day = DayOfWeek.Thursday, StartTime = new TimeOnly(9, 0), EndTime = new TimeOnly(10, 30), Color = "#e67e22" },
+            new() { Subject = "Physical Education", Teacher = "Coach Thompson", Room = "Gymnasium", Day = DayOfWeek.Thursday, StartTime = new TimeOnly(11, 0), EndTime = new TimeOnly(12, 0), Color = "#2ecc71" },
+
+            new() { Subject = "Computer Science", Teacher = "Mr. Lee", Room = "Computer Lab", Day = DayOfWeek.Friday, StartTime = new TimeOnly(9, 0), EndTime = new TimeOnly(10, 0), Color = "#34495e" },
+            new() { Subject = "French", Teacher = "Mme. Dubois", Room = "Room 303", Day = DayOfWeek.Friday, StartTime = new TimeOnly(10, 15), EndTime = new TimeOnly(11, 15), Color = "#8e44ad" },
+        };
+    }
+
+    private IEnumerable<TimetableEntry> GetTodayClasses()
+    {
+        var today = DateTime.Now.DayOfWeek;
+        var targetDay = today;
+
+        // If it's Saturday or Sunday, show next Monday's schedule
+        if (today == DayOfWeek.Saturday || today == DayOfWeek.Sunday)
+        {
+            targetDay = DayOfWeek.Monday;
+        }
+
+        return _timetable
+            .Where(t => t.Day == targetDay)
+            .OrderBy(t => t.StartTime);
+    }
+
+    private bool IsClassCurrent(TimetableEntry entry)
+    {
+        var today = DateTime.Now.DayOfWeek;
+        // Only show "current" status on actual weekdays, not on weekends
+        if (today == DayOfWeek.Saturday || today == DayOfWeek.Sunday)
+            return false;
+
+        var now = TimeOnly.FromDateTime(DateTime.Now);
+        return now >= entry.StartTime && now <= entry.EndTime;
+    }
+
+    private bool IsClassNext(TimetableEntry entry)
+    {
+        var today = DateTime.Now.DayOfWeek;
+        // Only show "next" status on actual weekdays, not on weekends
+        if (today == DayOfWeek.Saturday || today == DayOfWeek.Sunday)
+            return false;
+
+        var now = TimeOnly.FromDateTime(DateTime.Now);
+        var todayClasses = GetTodayClasses().ToList();
+        var currentIndex = todayClasses.FindIndex(c => c.Id == entry.Id);
+
+        if (currentIndex == 0 && now < entry.StartTime)
+            return true;
+
+        if (currentIndex > 0)
+        {
+            var previousClass = todayClasses[currentIndex - 1];
+            return now > previousClass.EndTime && now < entry.StartTime;
+        }
+
+        return false;
+    }
+
+    private bool IsClassUpcoming(TimetableEntry entry)
+    {
+        var today = DateTime.Now.DayOfWeek;
+        // Only show "upcoming" status on actual weekdays, not on weekends
+        if (today == DayOfWeek.Saturday || today == DayOfWeek.Sunday)
+            return false;
+
+        var now = TimeOnly.FromDateTime(DateTime.Now);
+        return now < entry.StartTime && !IsClassNext(entry);
+    }
+
+    private string GetScheduleTitle()
+    {
+        var today = DateTime.Now.DayOfWeek;
+        if (today == DayOfWeek.Saturday || today == DayOfWeek.Sunday)
+        {
+            return "Next Week's Schedule (Monday)";
+        }
+        return "Today's Schedule";
+    }
+}

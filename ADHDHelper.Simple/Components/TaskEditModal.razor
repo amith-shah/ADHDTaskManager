@@ -1,0 +1,405 @@
+@using Microsoft.AspNetCore.Components.Web
+
+<div class="modal fade @(IsVisible ? "show d-block" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content task-edit-modal">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    @if (IsNewTask)
+                    {
+                        <span>✨ Create New Task</span>
+                    }
+                    else
+                    {
+                        <span>✏️ Edit Task</span>
+                    }
+                </h5>
+                <button type="button" class="btn-close" @onclick="CloseModal"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="row">
+                    <!-- Left Column -->
+                    <div class="col-md-8">
+                        <!-- Task Title -->
+                        <div class="form-group mb-3">
+                            <label class="form-label fw-bold">Task Title *</label>
+                            <input type="text" class="form-control form-control-lg @GetValidationClass("title")"
+                                   @bind="EditingTask.Title" @oninput="ValidateTitle" placeholder="What needs to be done?" />
+                            @if (ValidationErrors.ContainsKey("title"))
+                            {
+                                <div class="invalid-feedback d-block">@ValidationErrors["title"]</div>
+                            }
+                        </div>
+
+                        <!-- Task Description -->
+                        <div class="form-group mb-3">
+                            <label class="form-label fw-bold">Description</label>
+                            <textarea class="form-control" rows="3" @bind="EditingTask.Description"
+                                      placeholder="Add details, notes, or instructions..."></textarea>
+                        </div>
+
+                        <!-- Due Date -->
+                        <div class="form-group mb-3">
+                            <label class="form-label fw-bold">Due Date</label>
+                            <input type="datetime-local" class="form-control" @bind="EditingTask.DueDate" />
+                        </div>
+
+                        <!-- Tags -->
+                        <div class="form-group mb-3">
+                            <label class="form-label fw-bold">Tags</label>
+                            <div class="tag-input-container">
+                                <input type="text" class="form-control" @bind="NewTagInput" @onkeypress="HandleTagKeyPress"
+                                       placeholder="Add tags (press Enter)" />
+                                <div class="tags-display mt-2">
+                                    @foreach (var tag in EditingTask.Tags)
+                                    {
+                                        <span class="badge bg-secondary me-1 mb-1">
+                                            @tag
+                                            <button type="button" class="btn-close btn-close-white ms-1"
+                                                    @onclick="() => RemoveTag(tag)" style="font-size: 0.7em;"></button>
+                                        </span>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column -->
+                    <div class="col-md-4">
+                        <!-- Priority -->
+                        <div class="form-group mb-3">
+                            <label class="form-label fw-bold">Priority</label>
+                            <div class="priority-selector">
+                                @foreach (var priority in new[] { "High", "Medium", "Low" })
+                                {
+                                    <div class="form-check priority-option priority-@priority.ToLower()">
+                                        <input class="form-check-input" type="radio" name="priority"
+                                               checked="@(EditingTask.Priority == priority)"
+                                               @onchange="() => EditingTask.Priority = priority" />
+                                        <label class="form-check-label">
+                                            @GetPriorityIcon(priority) @priority
+                                        </label>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Teams Integration -->
+                        <div class="form-group mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" @bind="EditingTask.IsFromTeams" />
+                                <label class="form-check-label">
+                                    📚 Teams Assignment
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Reminder -->
+                        <div class="form-group mb-3">
+                            <label class="form-label fw-bold">Reminder</label>
+                            <select class="form-select" @bind="SelectedReminderOption">
+                                <option value="">No reminder</option>
+                                <option value="15">15 minutes before</option>
+                                <option value="30">30 minutes before</option>
+                                <option value="60">1 hour before</option>
+                                <option value="1440">1 day before</option>
+                                <option value="custom">Custom time</option>
+                            </select>
+
+                            @if (SelectedReminderOption == "custom")
+                            {
+                                <input type="datetime-local" class="form-control mt-2" @bind="CustomReminderTime" />
+                            }
+                        </div>
+
+                        <!-- Estimated Duration -->
+                        <div class="form-group mb-3">
+                            <label class="form-label fw-bold">Estimated Duration</label>
+                            <div class="duration-buttons">
+                                @foreach (var duration in new[] { 15, 30, 45, 60, 90, 120 })
+                                {
+                                    <button type="button" class="btn btn-outline-primary btn-sm me-1 mb-1 @(EditingTask.EstimatedMinutes == duration ? "active" : "")"
+                                            @onclick="() => EditingTask.EstimatedMinutes = duration">
+                                        @(duration < 60 ? $"{duration}m" : $"{duration/60}h")
+                                    </button>
+                                }
+                            </div>
+                            <input type="number" class="form-control mt-2" @bind="EditingTask.EstimatedMinutes"
+                                   placeholder="Custom minutes" min="1" max="480" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseModal">
+                    Cancel
+                </button>
+                @if (!IsNewTask)
+                {
+                    <button type="button" class="btn btn-outline-danger" @onclick="DeleteTask">
+                        🗑️ Delete
+                    </button>
+                }
+                <button type="button" class="btn btn-primary" @onclick="SaveTask" disabled="@(!IsFormValid)">
+                    @if (IsNewTask)
+                    {
+                        <span>✨ Create Task</span>
+                    }
+                    else
+                    {
+                        <span>💾 Save Changes</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .task-edit-modal {
+        border-radius: 15px;
+        border: none;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+
+    .task-edit-modal .modal-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px 15px 0 0;
+        border-bottom: none;
+    }
+
+    .task-edit-modal .modal-title {
+        font-weight: 700;
+        font-size: 1.3rem;
+    }
+
+    .task-edit-modal .btn-close {
+        filter: invert(1);
+    }
+
+    .form-label {
+        color: #2d3748;
+        margin-bottom: 0.5rem;
+    }
+
+    .form-control, .form-select {
+        border-radius: 8px;
+        border: 2px solid #e2e8f0;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+
+    .form-control.is-valid {
+        border-color: #38a169;
+    }
+
+    .form-control.is-invalid {
+        border-color: #e53e3e;
+    }
+
+    .priority-selector {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .priority-option {
+        padding: 0.75rem;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .priority-option:hover {
+        transform: translateX(5px);
+    }
+
+    .priority-option.priority-high {
+        background: rgba(229, 62, 62, 0.1);
+        border: 1px solid rgba(229, 62, 62, 0.3);
+    }
+
+    .priority-option.priority-medium {
+        background: rgba(221, 107, 32, 0.1);
+        border: 1px solid rgba(221, 107, 32, 0.3);
+    }
+
+    .priority-option.priority-low {
+        background: rgba(56, 161, 105, 0.1);
+        border: 1px solid rgba(56, 161, 105, 0.3);
+    }
+
+    .priority-option .form-check-input:checked {
+        background-color: #667eea;
+        border-color: #667eea;
+    }
+
+    .tags-display .badge {
+        font-size: 0.9rem;
+        padding: 0.5rem 0.75rem;
+    }
+
+    .duration-buttons .btn {
+        min-width: 50px;
+    }
+
+    .duration-buttons .btn.active {
+        background-color: #667eea;
+        border-color: #667eea;
+        color: white;
+    }
+
+    .modal-footer {
+        border-top: 1px solid #e2e8f0;
+        padding: 1.5rem;
+    }
+
+    .modal-footer .btn {
+        border-radius: 8px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+    }
+
+    .invalid-feedback {
+        color: #e53e3e;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+</style>
+
+@code {
+    [Parameter] public bool IsVisible { get; set; } = false;
+    [Parameter] public bool IsNewTask { get; set; } = false;
+    [Parameter] public Home.SimpleTask? Task { get; set; }
+    [Parameter] public EventCallback<Home.SimpleTask> OnSave { get; set; }
+    [Parameter] public EventCallback<Home.SimpleTask> OnDelete { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private Home.SimpleTask EditingTask = new();
+    private Dictionary<string, string> ValidationErrors = new();
+    private string NewTagInput = "";
+    private string SelectedReminderOption = "";
+    private DateTime? CustomReminderTime;
+
+    private bool IsFormValid => !ValidationErrors.Any() && !string.IsNullOrWhiteSpace(EditingTask.Title);
+
+    protected override void OnParametersSet()
+    {
+        if (Task != null)
+        {
+            EditingTask = new Home.SimpleTask
+            {
+                Title = Task.Title,
+                Description = Task.Description ?? "",
+                Priority = Task.Priority,
+                IsCompleted = Task.IsCompleted,
+                IsFromTeams = Task.IsFromTeams,
+                DueDate = Task.DueDate,
+                EstimatedMinutes = Task.EstimatedMinutes,
+                Tags = new List<string>(Task.Tags ?? new List<string>())
+            };
+        }
+        else
+        {
+            EditingTask = new Home.SimpleTask();
+        }
+
+        ValidationErrors.Clear();
+    }
+
+    private void ValidateTitle(ChangeEventArgs e)
+    {
+        var title = e.Value?.ToString() ?? "";
+
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            ValidationErrors["title"] = "Task title is required";
+        }
+        else if (title.Length < 3)
+        {
+            ValidationErrors["title"] = "Title must be at least 3 characters long";
+        }
+        else if (title.Length > 100)
+        {
+            ValidationErrors["title"] = "Title must be less than 100 characters";
+        }
+        else
+        {
+            ValidationErrors.Remove("title");
+        }
+
+        StateHasChanged();
+    }
+
+    private string GetValidationClass(string field)
+    {
+        if (!ValidationErrors.ContainsKey(field) && !string.IsNullOrEmpty(EditingTask.Title))
+            return "is-valid";
+        if (ValidationErrors.ContainsKey(field))
+            return "is-invalid";
+        return "";
+    }
+
+    private async Task HandleTagKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(NewTagInput))
+        {
+            var tag = NewTagInput.Trim();
+            if (!EditingTask.Tags.Contains(tag))
+            {
+                EditingTask.Tags.Add(tag);
+                NewTagInput = "";
+                StateHasChanged();
+            }
+        }
+    }
+
+    private void RemoveTag(string tag)
+    {
+        EditingTask.Tags.Remove(tag);
+        StateHasChanged();
+    }
+
+    private string GetPriorityIcon(string priority)
+    {
+        return priority switch
+        {
+            "High" => "🔴",
+            "Medium" => "🟡",
+            "Low" => "🟢",
+            _ => "⚪"
+        };
+    }
+
+    private async Task SaveTask()
+    {
+        if (IsFormValid)
+        {
+            await OnSave.InvokeAsync(EditingTask);
+            await CloseModal();
+        }
+    }
+
+    private async Task DeleteTask()
+    {
+        if (Task != null)
+        {
+            await OnDelete.InvokeAsync(Task);
+            await CloseModal();
+        }
+    }
+
+    private async Task CloseModal()
+    {
+        IsVisible = false;
+        await OnClose.InvokeAsync();
+    }
+
+}

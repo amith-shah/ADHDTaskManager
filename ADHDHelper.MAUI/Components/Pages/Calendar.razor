@@ -1,0 +1,633 @@
+@page "/calendar"
+@inject ITaskService TaskService
+@inject ICalendarService CalendarService
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>Calendar - ADHD Helper</PageTitle>
+
+<div class="calendar-container">
+
+    <!-- Calendar Header -->
+    <div class="calendar-header">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h1><i class="bi-calendar3 text-primary"></i> Calendar</h1>
+                <p class="text-muted">Plan and organize your time</p>
+            </div>
+            <div class="col-md-6 text-end">
+                <div class="calendar-controls">
+                    <div class="view-selector">
+                        <button class="btn btn-outline-secondary @(_currentView == CalendarView.Month ? "active" : "")"
+                                @onclick="() => SetView(CalendarView.Month)">
+                            Month
+                        </button>
+                        <button class="btn btn-outline-secondary @(_currentView == CalendarView.Week ? "active" : "")"
+                                @onclick="() => SetView(CalendarView.Week)">
+                            Week
+                        </button>
+                        <button class="btn btn-outline-secondary @(_currentView == CalendarView.Day ? "active" : "")"
+                                @onclick="() => SetView(CalendarView.Day)">
+                            Day
+                        </button>
+                    </div>
+                    <button class="btn btn-outline-primary ms-2" @onclick="GoToToday">
+                        <i class="bi-calendar-check"></i> Today
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="calendar-navigation">
+            <div class="nav-controls">
+                <button class="btn btn-outline-secondary" @onclick="NavigatePrevious">
+                    <i class="bi-chevron-left"></i>
+                </button>
+                <h2 class="current-period">@GetCurrentPeriodText()</h2>
+                <button class="btn btn-outline-secondary" @onclick="NavigateNext">
+                    <i class="bi-chevron-right"></i>
+                </button>
+            </div>
+            <div class="calendar-info">
+                <span class="task-count">@_tasksInView.Count tasks this @_currentView.ToString().ToLower()</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calendar Content -->
+    <div class="calendar-content">
+        @if (_currentView == CalendarView.Month)
+        {
+            <div class="calendar-month-view">
+                <!-- Day Headers -->
+                <div class="calendar-day-headers">
+                    @foreach (var day in GetDayHeaders())
+                    {
+                        <div class="day-header">@day</div>
+                    }
+                </div>
+
+                <!-- Calendar Grid -->
+                <div class="calendar-grid">
+                    @foreach (var date in GetCalendarDates())
+                    {
+                        var dayTasks = _tasksInView.Where(t => t.ScheduledDate?.Date == date.Date).ToList();
+                        var isToday = date.Date == DateTime.Today;
+                        var isCurrentMonth = date.Month == _currentDate.Month;
+
+                        <div class="calendar-cell @(isToday ? "today" : "") @(isCurrentMonth ? "" : "other-month")"
+                             data-date="@date.ToString("yyyy-MM-dd")"
+                             @onclick="() => SelectDate(date)"
+                             @ondrop="OnDrop" @ondragover="OnDragOver">
+
+                            <div class="cell-header">
+                                <span class="date-number">@date.Day</span>
+                                @if (dayTasks.Any())
+                                {
+                                    <span class="task-count-badge">@dayTasks.Count</span>
+                                }
+                            </div>
+
+                            <div class="cell-content">
+                                @foreach (var task in dayTasks.Take(3))
+                                {
+                                    <div class="calendar-task priority-@task.Priority.ToString().ToLower()"
+                                         @onclick:stopPropagation="true"
+                                         @onclick="() => EditTask(task)">
+                                        <div class="task-dot"></div>
+                                        <div class="task-title">@TruncateText(task.Title, 20)</div>
+                                    </div>
+                                }
+                                @if (dayTasks.Count > 3)
+                                {
+                                    <div class="more-tasks">+@(dayTasks.Count - 3) more</div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+        else if (_currentView == CalendarView.Week)
+        {
+            <div class="calendar-week-view">
+                <!-- Time Column -->
+                <div class="time-column">
+                    <div class="time-header"></div>
+                    @for (int hour = 6; hour <= 22; hour++)
+                    {
+                        <div class="time-slot">
+                            <span class="time-label">@DateTime.Today.AddHours(hour).ToString("h tt")</span>
+                        </div>
+                    }
+                </div>
+
+                <!-- Week Days -->
+                <div class="week-days">
+                    @foreach (var date in GetWeekDates())
+                    {
+                        var dayTasks = _tasksInView.Where(t => t.ScheduledDate?.Date == date.Date).ToList();
+                        var isToday = date.Date == DateTime.Today;
+
+                        <div class="week-day-column">
+                            <div class="week-day-header @(isToday ? "today" : "")">
+                                <div class="day-name">@date.ToString("ddd")</div>
+                                <div class="day-number">@date.Day</div>
+                            </div>
+
+                            <div class="week-day-content"
+                                 data-date="@date.ToString("yyyy-MM-dd")"
+                                 @ondrop="OnDrop" @ondragover="OnDragOver">
+
+                                @for (int hour = 6; hour <= 22; hour++)
+                                {
+                                    var hourTasks = dayTasks.Where(t =>
+                                        t.ScheduledDate?.Hour == hour ||
+                                        (t.DueDate?.Hour == hour && !t.ScheduledDate.HasValue)
+                                    ).ToList();
+
+                                    <div class="time-slot @(isToday && DateTime.Now.Hour == hour ? "current-hour" : "")"
+                                         data-hour="@hour">
+                                        @foreach (var task in hourTasks)
+                                        {
+                                            <div class="week-task priority-@task.Priority.ToString().ToLower()"
+                                                 @onclick="() => EditTask(task)">
+                                                <div class="task-time">
+                                                    @if (task.ScheduledDate.HasValue)
+                                                    {
+                                                        @task.ScheduledDate.Value.ToString("h:mm")
+                                                    }
+                                                    else if (task.DueDate.HasValue)
+                                                    {
+                                                        @task.DueDate.Value.ToString("h:mm")
+                                                    }
+                                                </div>
+                                                <div class="task-title">@task.Title</div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+        else
+        {
+            <!-- Day View -->
+            <div class="calendar-day-view">
+                <div class="day-view-header">
+                    <h3>@_selectedDate.ToString("dddd, MMMM dd, yyyy")</h3>
+                    <div class="day-summary">
+                        @{
+                            var dayTasks = _tasksInView.Where(t => t.ScheduledDate?.Date == _selectedDate.Date).ToList();
+                        }
+                        <span>@dayTasks.Count tasks scheduled</span>
+                        @if (dayTasks.Any(t => t.DueDate?.Date == _selectedDate.Date))
+                        {
+                            <span class="ms-3 text-danger">@dayTasks.Count(t => t.DueDate?.Date == _selectedDate.Date) due today</span>
+                        }
+                    </div>
+                </div>
+
+                <div class="day-view-content">
+                    <div class="time-slots">
+                        @for (int hour = 6; hour <= 22; hour++)
+                        {
+                            var hourTasks = dayTasks.Where(t =>
+                                t.ScheduledDate?.Hour == hour ||
+                                (t.DueDate?.Hour == hour && !t.ScheduledDate.HasValue)
+                            ).ToList();
+
+                            <div class="day-time-slot @(DateTime.Now.Hour == hour && _selectedDate.Date == DateTime.Today ? "current-hour" : "")"
+                                 data-hour="@hour"
+                                 @ondrop="OnDrop" @ondragover="OnDragOver">
+
+                                <div class="time-label">
+                                    @DateTime.Today.AddHours(hour).ToString("h:mm tt")
+                                </div>
+
+                                <div class="slot-content">
+                                    @if (hourTasks.Any())
+                                    {
+                                        @foreach (var task in hourTasks)
+                                        {
+                                            <div class="day-task priority-@task.Priority.ToString().ToLower()"
+                                                 @onclick="() => EditTask(task)">
+                                                <div class="task-header">
+                                                    <h5 class="task-title">@task.Title</h5>
+                                                    <div class="task-badges">
+                                                        <span class="priority-badge priority-@task.Priority.ToString().ToLower()">
+                                                            @GetPriorityIcon(task.Priority)
+                                                        </span>
+                                                        @if (task.IsFromTeams)
+                                                        {
+                                                            <span class="teams-badge">Teams</span>
+                                                        }
+                                                    </div>
+                                                </div>
+                                                @if (!string.IsNullOrEmpty(task.Description))
+                                                {
+                                                    <p class="task-description">@TruncateText(task.Description, 100)</p>
+                                                }
+                                                <div class="task-meta">
+                                                    @if (task.EstimatedDuration.HasValue)
+                                                    {
+                                                        <span><i class="bi-clock"></i> @FormatDuration(task.EstimatedDuration.Value)</span>
+                                                    }
+                                                    @if (task.DueDate.HasValue)
+                                                    {
+                                                        <span><i class="bi-calendar-event"></i> Due: @task.DueDate.Value.ToString("h:mm tt")</span>
+                                                    }
+                                                </div>
+                                            </div>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <div class="empty-slot" @onclick="() => CreateTaskForTime(hour)">
+                                            <i class="bi-plus-circle"></i>
+                                            <span>Add task</span>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- Calendar Sidebar -->
+    <div class="calendar-sidebar">
+        <!-- Mini Calendar -->
+        <div class="mini-calendar">
+            <div class="mini-calendar-header">
+                <button class="btn btn-sm btn-outline-secondary" @onclick="NavigateMiniCalendarPrevious">
+                    <i class="bi-chevron-left"></i>
+                </button>
+                <h6>@_miniCalendarDate.ToString("MMMM yyyy")</h6>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="NavigateMiniCalendarNext">
+                    <i class="bi-chevron-right"></i>
+                </button>
+            </div>
+            <div class="mini-calendar-grid">
+                @foreach (var day in new[] { "S", "M", "T", "W", "T", "F", "S" })
+                {
+                    <div class="mini-day-header">@day</div>
+                }
+                @foreach (var date in GetMiniCalendarDates())
+                {
+                    var hasTask = _allTasks.Any(t => t.ScheduledDate?.Date == date.Date);
+                    var isToday = date.Date == DateTime.Today;
+                    var isSelected = date.Date == _selectedDate.Date;
+
+                    <div class="mini-calendar-cell @(isToday ? "today" : "") @(isSelected ? "selected" : "") @(hasTask ? "has-tasks" : "")"
+                         @onclick="() => SelectDate(date)">
+                        @date.Day
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Upcoming Tasks -->
+        <div class="upcoming-tasks-panel">
+            <h6><i class="bi-list-task"></i> Upcoming Tasks</h6>
+            @if (_upcomingTasks.Any())
+            {
+                <div class="upcoming-tasks-list">
+                    @foreach (var task in _upcomingTasks.Take(5))
+                    {
+                        <div class="upcoming-task-item priority-@task.Priority.ToString().ToLower()"
+                             @onclick="() => EditTask(task)">
+                            <div class="task-dot"></div>
+                            <div class="task-info">
+                                <div class="task-title">@task.Title</div>
+                                <div class="task-date">
+                                    @if (task.ScheduledDate.HasValue)
+                                    {
+                                        @FormatUpcomingDate(task.ScheduledDate.Value)
+                                    }
+                                    else if (task.DueDate.HasValue)
+                                    {
+                                        <span class="text-danger">Due @FormatUpcomingDate(task.DueDate.Value)</span>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="text-muted">No upcoming tasks</p>
+            }
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="quick-actions-panel">
+            <h6><i class="bi-lightning"></i> Quick Actions</h6>
+            <div class="quick-action-buttons">
+                <button class="btn btn-outline-primary w-100 mb-2" @onclick="CreateTaskForSelectedDate">
+                    <i class="bi-plus-circle"></i> Add Task
+                </button>
+                <button class="btn btn-outline-secondary w-100 mb-2" @onclick="SyncWithTeams">
+                    <i class="bi-arrow-clockwise"></i> Sync Teams
+                </button>
+                <button class="btn btn-outline-info w-100" @onclick="ExportCalendar">
+                    <i class="bi-download"></i> Export
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private enum CalendarView { Month, Week, Day }
+
+    private CalendarView _currentView = CalendarView.Month;
+    private DateTime _currentDate = DateTime.Today;
+    private DateTime _selectedDate = DateTime.Today;
+    private DateTime _miniCalendarDate = DateTime.Today;
+
+    private List<TaskItem> _allTasks = new();
+    private List<TaskItem> _tasksInView = new();
+    private List<TaskItem> _upcomingTasks = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTasks();
+        UpdateTasksInView();
+        LoadUpcomingTasks();
+        await JSRuntime.InvokeVoidAsync("initializeCalendarDragDrop");
+    }
+
+    private async Task LoadTasks()
+    {
+        _allTasks = await TaskService.GetAllTasksAsync();
+    }
+
+    private void UpdateTasksInView()
+    {
+        switch (_currentView)
+        {
+            case CalendarView.Month:
+                var monthStart = new DateTime(_currentDate.Year, _currentDate.Month, 1);
+                var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+                _tasksInView = _allTasks.Where(t =>
+                    t.ScheduledDate >= monthStart && t.ScheduledDate <= monthEnd
+                ).ToList();
+                break;
+
+            case CalendarView.Week:
+                var weekStart = _currentDate.AddDays(-(int)_currentDate.DayOfWeek);
+                var weekEnd = weekStart.AddDays(6);
+                _tasksInView = _allTasks.Where(t =>
+                    t.ScheduledDate >= weekStart && t.ScheduledDate <= weekEnd
+                ).ToList();
+                break;
+
+            case CalendarView.Day:
+                _tasksInView = _allTasks.Where(t =>
+                    t.ScheduledDate?.Date == _selectedDate.Date
+                ).ToList();
+                break;
+        }
+    }
+
+    private void LoadUpcomingTasks()
+    {
+        _upcomingTasks = _allTasks.Where(t =>
+            (t.ScheduledDate > DateTime.Now || t.DueDate > DateTime.Now) &&
+            t.Status != TaskStatus.Completed
+        ).OrderBy(t => t.ScheduledDate ?? t.DueDate).ToList();
+    }
+
+    private void SetView(CalendarView view)
+    {
+        _currentView = view;
+        UpdateTasksInView();
+        StateHasChanged();
+    }
+
+    private void GoToToday()
+    {
+        _currentDate = DateTime.Today;
+        _selectedDate = DateTime.Today;
+        UpdateTasksInView();
+        StateHasChanged();
+    }
+
+    private void NavigatePrevious()
+    {
+        switch (_currentView)
+        {
+            case CalendarView.Month:
+                _currentDate = _currentDate.AddMonths(-1);
+                break;
+            case CalendarView.Week:
+                _currentDate = _currentDate.AddDays(-7);
+                break;
+            case CalendarView.Day:
+                _selectedDate = _selectedDate.AddDays(-1);
+                _currentDate = _selectedDate;
+                break;
+        }
+        UpdateTasksInView();
+        StateHasChanged();
+    }
+
+    private void NavigateNext()
+    {
+        switch (_currentView)
+        {
+            case CalendarView.Month:
+                _currentDate = _currentDate.AddMonths(1);
+                break;
+            case CalendarView.Week:
+                _currentDate = _currentDate.AddDays(7);
+                break;
+            case CalendarView.Day:
+                _selectedDate = _selectedDate.AddDays(1);
+                _currentDate = _selectedDate;
+                break;
+        }
+        UpdateTasksInView();
+        StateHasChanged();
+    }
+
+    private void NavigateMiniCalendarPrevious()
+    {
+        _miniCalendarDate = _miniCalendarDate.AddMonths(-1);
+        StateHasChanged();
+    }
+
+    private void NavigateMiniCalendarNext()
+    {
+        _miniCalendarDate = _miniCalendarDate.AddMonths(1);
+        StateHasChanged();
+    }
+
+    private void SelectDate(DateTime date)
+    {
+        _selectedDate = date;
+        _currentDate = date;
+        if (_currentView != CalendarView.Day)
+        {
+            SetView(CalendarView.Day);
+        }
+        else
+        {
+            UpdateTasksInView();
+        }
+        StateHasChanged();
+    }
+
+    private async Task CreateTaskForSelectedDate()
+    {
+        await JSRuntime.InvokeVoidAsync("showCreateTaskModal", _selectedDate.ToString("yyyy-MM-dd"));
+    }
+
+    private async Task CreateTaskForTime(int hour)
+    {
+        var dateTime = _selectedDate.Date.AddHours(hour);
+        await JSRuntime.InvokeVoidAsync("showCreateTaskModal", dateTime.ToString("yyyy-MM-ddTHH:mm"));
+    }
+
+    private async Task EditTask(TaskItem task)
+    {
+        await JSRuntime.InvokeVoidAsync("showEditTaskModal", task.Id.ToString());
+    }
+
+    private async Task SyncWithTeams()
+    {
+        await JSRuntime.InvokeVoidAsync("showNotification", "🔄 Syncing with Teams...", "info");
+        // Simulate sync
+        await Task.Delay(2000);
+        await LoadTasks();
+        UpdateTasksInView();
+        await JSRuntime.InvokeVoidAsync("showNotification", "✅ Teams sync complete!", "success");
+        StateHasChanged();
+    }
+
+    private async Task ExportCalendar()
+    {
+        await JSRuntime.InvokeVoidAsync("showNotification", "📅 Export feature coming soon!", "info");
+    }
+
+    // Drag and drop handlers
+    private void OnDragOver(DragEventArgs e)
+    {
+        e.DataTransfer!.DropEffect = "move";
+    }
+
+    private async Task OnDrop(DragEventArgs e)
+    {
+        var taskId = e.DataTransfer?.GetData("text/plain");
+        if (Guid.TryParse(taskId, out var id))
+        {
+            // Handle task scheduling logic here
+            await JSRuntime.InvokeVoidAsync("showNotification", "📅 Task scheduled!", "success");
+        }
+    }
+
+    // Helper methods
+    private string GetCurrentPeriodText()
+    {
+        return _currentView switch
+        {
+            CalendarView.Month => _currentDate.ToString("MMMM yyyy"),
+            CalendarView.Week => $"Week of {_currentDate.AddDays(-(int)_currentDate.DayOfWeek).ToString("MMM dd")}",
+            CalendarView.Day => _selectedDate.ToString("dddd, MMMM dd"),
+            _ => ""
+        };
+    }
+
+    private string[] GetDayHeaders()
+    {
+        return new[] { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
+    }
+
+    private List<DateTime> GetCalendarDates()
+    {
+        var firstDay = new DateTime(_currentDate.Year, _currentDate.Month, 1);
+        var startDate = firstDay.AddDays(-(int)firstDay.DayOfWeek);
+        var dates = new List<DateTime>();
+
+        for (int i = 0; i < 42; i++) // 6 weeks
+        {
+            dates.Add(startDate.AddDays(i));
+        }
+
+        return dates;
+    }
+
+    private List<DateTime> GetWeekDates()
+    {
+        var startOfWeek = _currentDate.AddDays(-(int)_currentDate.DayOfWeek);
+        var dates = new List<DateTime>();
+
+        for (int i = 0; i < 7; i++)
+        {
+            dates.Add(startOfWeek.AddDays(i));
+        }
+
+        return dates;
+    }
+
+    private List<DateTime> GetMiniCalendarDates()
+    {
+        var firstDay = new DateTime(_miniCalendarDate.Year, _miniCalendarDate.Month, 1);
+        var startDate = firstDay.AddDays(-(int)firstDay.DayOfWeek);
+        var dates = new List<DateTime>();
+
+        for (int i = 0; i < 42; i++)
+        {
+            dates.Add(startDate.AddDays(i));
+        }
+
+        return dates;
+    }
+
+    private string GetPriorityIcon(TaskPriority priority)
+    {
+        return priority switch
+        {
+            TaskPriority.Urgent => "🔴",
+            TaskPriority.High => "🟠",
+            TaskPriority.Medium => "🟡",
+            TaskPriority.Low => "🟢",
+            _ => "⚪"
+        };
+    }
+
+    private string FormatDuration(TimeSpan duration)
+    {
+        if (duration.TotalHours >= 1)
+        {
+            return $"{duration.TotalHours:F1}h";
+        }
+        return $"{duration.TotalMinutes:F0}m";
+    }
+
+    private string FormatUpcomingDate(DateTime date)
+    {
+        var daysDiff = (date.Date - DateTime.Today).Days;
+        return daysDiff switch
+        {
+            0 => "Today",
+            1 => "Tomorrow",
+            _ when daysDiff < 7 => date.ToString("dddd"),
+            _ => date.ToString("MMM dd")
+        };
+    }
+
+    private string TruncateText(string text, int maxLength)
+    {
+        if (text.Length <= maxLength) return text;
+        return text.Substring(0, maxLength) + "...";
+    }
+}
